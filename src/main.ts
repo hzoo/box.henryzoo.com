@@ -33,6 +33,7 @@ let offset: Coord = {
   x: 0,
   y: 0,
 };
+let dragging = false;
 
 // This function returns the closest grid point to the point (x, y).
 // The grid is composed of squares of size boxSize. The returned grid
@@ -72,7 +73,7 @@ function setBoxProperty<T extends keyof Box>(
   }
 }
 
-function draw(action?: string) {
+function draw() {
   // clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -98,12 +99,7 @@ function draw(action?: string) {
   }
 
   // draw line from selected box to nearest box (if dragging)
-  if (
-    action == "dragging" &&
-    selectedBox &&
-    selectedBox.new &&
-    selectedBox.operator
-  ) {
+  if (dragging && selectedBox && selectedBox.new && selectedBox.operator) {
     ctx.beginPath();
     ctx.moveTo(selectedBox.startX + boxSize, selectedBox.startY + boxSize / 2);
     // lineTo nearest dot/box
@@ -144,16 +140,20 @@ function getMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
 }
 
 // function to check closest box to mouse
-function getClosestBox(x: number, y: number) {
+function getClosestBox(x: number, y: number): Box | undefined {
   let { x: closestX, y: closestY } = getClosestGrid(x, y);
   let key = `${closestX},${closestY}`;
   if (boxes.has(key)) {
     return boxes.get(key);
   }
+
+  return undefined;
 }
 
 // box selection or new box
 canvas.addEventListener("mousedown", function (event) {
+  dragging = true;
+
   let { x, y } = getMousePos(canvas, event);
   let existingBox = getClosestBox(x, y);
 
@@ -208,11 +208,11 @@ function createBox({
 // dragging
 canvas.addEventListener("mousemove", function (event) {
   if (!selectedBox) {
+    dragging = false;
     return;
   }
 
   let { x, y } = getMousePos(canvas, event);
-
   selectedBox.x = x - offset.x - boxSize / 2;
   selectedBox.y = y - offset.y - boxSize / 2;
 
@@ -224,11 +224,12 @@ canvas.addEventListener("mousemove", function (event) {
     previewCoord = closest;
   }
 
-  draw("dragging");
+  draw();
 });
 
 // dropping
 canvas.addEventListener("mouseup", function (event) {
+  dragging = false;
   if (selectedBox && !selectedBox.new && previewCoord) {
     // delete old box
     boxes.delete(`${selectedBox.startX},${selectedBox.startY}`);

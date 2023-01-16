@@ -7,3 +7,5 @@
 - parameterize operators?
 - what about this as a tower defense game where the monsters are just inputs, need to turn inputs into certain values?
 - how does this relate to music, changing keys/scales?
+- [x] animate operator box lines to show flow of boxes
+- input area should also move if hovered over?
