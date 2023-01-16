@@ -429,8 +429,9 @@ function animateBoxLines() {
 }
 
 // add a new box to an area coordinate
+// @dev round x and y to closest grid
 function addBoxToArea({ x, y }: { x: number; y: number }) {
-  let area = areas.get(`${x},${y}`);
+  let area = getClosestArea(x, y);
   if (area) {
     area.boxes.push(createBox({ x, y }));
   } else {
@@ -441,6 +442,7 @@ function addBoxToArea({ x, y }: { x: number; y: number }) {
 }
 
 // add an operator to an area coordinate
+// @dev round x and y to closest grid
 function addOperatorToArea({
   x,
   y,
@@ -450,7 +452,7 @@ function addOperatorToArea({
   y: number;
   boxLength?: number;
 }) {
-  let area = areas.get(`${x},${y}`);
+  let area = getClosestArea(x, y);
   if (area) {
     area.operatorBox = createOperator({ x, y, boxLength });
   } else {
