@@ -293,7 +293,7 @@ document.addEventListener("keydown", function (event) {
   }
 });
 
-(function () {
+function animateBoxLines() {
   let dotSpacing = 10;
   let dotSize = 5;
   let animationDuration = 4000;
@@ -335,7 +335,7 @@ document.addEventListener("keydown", function (event) {
     requestAnimationFrame(animateLine);
   }
   requestAnimationFrame(animateLine);
-})();
+}
 
 function init() {
   boxes.set("50,50", {
@@ -351,7 +351,15 @@ function init() {
     operator: "+1",
     boxLength: 2,
   });
+  boxes.set("150,150", {
+    x: 150,
+    y: 150,
+    value: 1,
+    operator: "+1",
+    boxLength: 4,
+  });
 
+  animateBoxLines();
   requestAnimationFrame(draw);
 }
 
