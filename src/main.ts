@@ -24,6 +24,7 @@ ctx.font = `${boxSize / 4}px Arial`;
 // let boxes: Box[] = [];
 // let operatorBoxes = new Map<string, Box>();
 let boxes = new Map<string, Box>();
+
 // @ts-ignore
 window.boxes = boxes;
 let selectedBox: SelectedBox | undefined = undefined;
@@ -291,33 +292,6 @@ document.addEventListener("keydown", function (event) {
   }
 });
 
-function animate(box: Box, operatorBox: Box) {
-  // Determine animation duration and distance
-  const duration = 1000;
-  const distance = {
-    x: operatorBox.x - box.x,
-    y: operatorBox.y - box.y,
-  };
-
-  // Set animation start time
-  const startTime = performance.now();
-
-  // Animate box position
-  const animateBoxPosition = (time: number) => {
-    const progress = (time - startTime) / duration;
-    box.x = box.x + distance.x * progress;
-    box.y = box.y + distance.y * progress;
-
-    if (progress < 1) {
-      requestAnimationFrame(animateBoxPosition);
-    }
-  };
-
-  requestAnimationFrame(animateBoxPosition);
-}
-
-requestAnimationFrame(draw);
-
 (function () {
   let dotSpacing = 10;
   let dotSize = 5;
@@ -361,3 +335,23 @@ requestAnimationFrame(draw);
   }
   requestAnimationFrame(animateLine);
 })();
+
+function init() {
+  boxes.set("50,50", {
+    x: 50,
+    y: 50,
+    value: 1,
+  });
+
+  boxes.set("100,100", {
+    x: 100,
+    y: 100,
+    value: 1,
+    operator: "+1",
+    boxLength: 2,
+  });
+
+  requestAnimationFrame(draw);
+}
+
+init();
