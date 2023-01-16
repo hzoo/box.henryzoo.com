@@ -28,10 +28,9 @@ let boxes = new Map<string, Box>();
 window.boxes = boxes;
 let selectedBox: SelectedBox | undefined = undefined;
 let previewCoord: Coord | undefined = undefined;
-let offset: Box = {
+let offset: Coord = {
   x: 0,
   y: 0,
-  value: 1,
 };
 
 // This function returns the closest grid point to the point (x, y).
@@ -72,10 +71,9 @@ function setBoxProperty<T extends keyof Box>(
   }
 }
 
-function draw(action: string) {
+function draw(action?: string) {
   // clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.setLineDash([]);
 
   // grid dots
   for (var x = 0; x < canvas.width; x += boxSize) {
@@ -84,7 +82,7 @@ function draw(action: string) {
     }
   }
 
-  // preview box (where it would be placed if dropped)
+  // preview box (where it would be placed if dropped on mouseup)
   if (previewCoord) {
     ctx.fillStyle = "#F1F5F9";
     ctx.fillRect(previewCoord.x, previewCoord.y, boxSize, boxSize);
@@ -118,16 +116,7 @@ function draw(action: string) {
     drawBorder(box.x, box.y, boxSize, !!box.operator);
 
     if (box.operator) {
-      // draw line as long as boxLength
-      // if (box.boxLength && box.boxLength > 0) {
-      //   ctx.beginPath();
-      //   ctx.moveTo(box.x + boxSize, box.y + boxSize / 2);
-      //   ctx.lineTo(
-      //     box.x + boxSize + box.boxLength * boxSize,
-      //     box.y + boxSize / 2
-      //   );
-      //   ctx.stroke();
-      // }
+      // @dev draw line out of box: moved to animateLine()
 
       // draw operator
       ctx.fillText(box.operator, box.x + boxSize / 2, box.y + boxSize + 20);
@@ -144,17 +133,31 @@ function draw(action: string) {
   }
 }
 
-// box selection
-canvas.addEventListener("mousedown", function (event) {
+// get mouse position
+function getMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
   var rect = canvas.getBoundingClientRect();
-  var x = event.clientX - rect.left;
-  var y = event.clientY - rect.top;
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
 
-  // check if a box was clicked
+// function to check closest box to mouse
+function getClosestBox(x: number, y: number) {
   let { x: closestX, y: closestY } = getClosestGrid(x, y);
   let key = `${closestX},${closestY}`;
   if (boxes.has(key)) {
-    selectedBox = boxes.get(key) as SelectedBox;
+    return boxes.get(key);
+  }
+}
+
+// box selection or new box
+canvas.addEventListener("mousedown", function (event) {
+  let { x, y } = getMousePos(canvas, event);
+  let existingBox = getClosestBox(x, y);
+
+  if (existingBox) {
+    selectedBox = existingBox as SelectedBox;
     selectedBox.startX = selectedBox.x;
     selectedBox.startY = selectedBox.y;
     if (selectedBox) {
@@ -164,24 +167,42 @@ canvas.addEventListener("mousedown", function (event) {
     return;
   }
 
-  // if no box was clicked, create a new one
-  let newBox: Box = { x: x - boxSize / 2, y: y - boxSize / 2, value: 1 };
-  newBox.x = Math.round(newBox.x / boxSize) * boxSize;
-  newBox.y = Math.round(newBox.y / boxSize) * boxSize;
+  let newBox = createBox({
+    x: x - boxSize / 2,
+    y: y - boxSize / 2,
+    operator: event.shiftKey ? "+1" : undefined,
+  });
 
-  // if operator
-  if (event.shiftKey) {
-    newBox.operator = "+1";
-  }
   boxes.set(`${newBox.x},${newBox.y}`, newBox);
-
-  // set selected box
   selectedBox = { ...newBox, startX: newBox.x, startY: newBox.y, new: true };
+
   offset.x = 0;
   offset.y = 0;
 
   draw();
 });
+
+// function to create a box
+function createBox({
+  x,
+  y,
+  operator,
+}: {
+  x: number;
+  y: number;
+  operator?: string;
+}): Box {
+  // default value of 1
+  let newBox: Box = { x, y, value: 1 };
+  newBox.x = Math.round(newBox.x / boxSize) * boxSize;
+  newBox.y = Math.round(newBox.y / boxSize) * boxSize;
+
+  // default operator
+  if (operator) {
+    newBox.operator = "+1";
+  }
+  return newBox;
+}
 
 // dragging
 canvas.addEventListener("mousemove", function (event) {
@@ -189,9 +210,7 @@ canvas.addEventListener("mousemove", function (event) {
     return;
   }
 
-  var rect = canvas.getBoundingClientRect();
-  var x = event.clientX - rect.left;
-  var y = event.clientY - rect.top;
+  let { x, y } = getMousePos(canvas, event);
 
   selectedBox.x = x - offset.x - boxSize / 2;
   selectedBox.y = y - offset.y - boxSize / 2;
@@ -301,8 +320,8 @@ requestAnimationFrame(draw);
 
 (function () {
   let dotSpacing = 10;
-  let dotSize = 4;
-  let animationDuration = 2000;
+  let dotSize = 5;
+  let animationDuration = 4000;
   let startTime = performance.now();
   function animateLine() {
     draw();
