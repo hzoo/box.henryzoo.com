@@ -269,9 +269,18 @@ function createBox({ x, y }: { x: number; y: number }): Box {
   return newBox;
 }
 
-function createOperator({ x, y }: { x: number; y: number }): Operator {
+function createOperator({
+  x,
+  y,
+  boxLength,
+}: {
+  x: number;
+  y: number;
+  boxLength?: number;
+}): Operator {
   let newOperator: Operator = createBox({ x, y }) as Operator;
   newOperator.operator = "+";
+  newOperator.boxLength = boxLength || 1;
 
   return newOperator;
 }
@@ -419,35 +428,44 @@ function animateBoxLines() {
   requestAnimationFrame(animateLine);
 }
 
+// add a new box to an area coordinate
+function addBoxToArea({ x, y }: { x: number; y: number }) {
+  let area = areas.get(`${x},${y}`);
+  if (area) {
+    area.boxes.push(createBox({ x, y }));
+  } else {
+    areas.set(`${x},${y}`, {
+      boxes: [createBox({ x, y })],
+    });
+  }
+}
+
+// add an operator to an area coordinate
+function addOperatorToArea({
+  x,
+  y,
+  boxLength = 1,
+}: {
+  x: number;
+  y: number;
+  boxLength?: number;
+}) {
+  let area = areas.get(`${x},${y}`);
+  if (area) {
+    area.operatorBox = createOperator({ x, y, boxLength });
+  } else {
+    areas.set(`${x},${y}`, {
+      boxes: [],
+      operatorBox: createOperator({ x, y, boxLength }),
+    });
+  }
+}
+
 function init() {
-  // if (isOperator(newEntity)) {
-  //   area.operatorBox = newEntity;
-  // } else {
-  //   area.boxes.push(newEntity);
-  // }
-
-  let area = areas.get("50,50")?.boxes.push(createBox({ x: 50, y: 50 }));
-
-  // areas.set("50,50", {
-  //   x: 50,
-  //   y: 50,
-  //   value: 1,
-  // });
-
-  // areas.set("100,100", {
-  //   x: 100,
-  //   y: 100,
-  //   value: 1,
-  //   operator: "+1",
-  //   boxLength: 2,
-  // });
-  // areas.set("150,150", {
-  //   x: 150,
-  //   y: 150,
-  //   value: 1,
-  //   operator: "+1",
-  //   boxLength: 4,
-  // });
+  addBoxToArea({ x: 0, y: 0 });
+  addOperatorToArea({ x: 50, y: 50 });
+  addOperatorToArea({ x: 100, y: 100, boxLength: 2 });
+  addOperatorToArea({ x: 150, y: 150, boxLength: 4 });
 
   animateBoxLines();
   requestAnimationFrame(draw);
