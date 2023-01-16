@@ -52,13 +52,13 @@ let areas: Map<Coordinates, Area> = new Map();
 // @ts-ignore
 window.areas = areas;
 
+// if dragging
 let selectedEntity: Selection | undefined = undefined;
 let previewCoordinate: Coord | undefined = undefined;
 let offset: Coord = {
   x: 0,
   y: 0,
 };
-let dragging = false;
 
 // This function returns the closest grid point to the point (x, y).
 // The grid is composed of squares of size boxSize. The returned grid
@@ -84,18 +84,6 @@ function drawBorder(x: number, y: number, size: number, dotted = false) {
   // @ts-ignore
   // ctx.roundRect(x, y, size, size, 10);
   // ctx.stroke();
-}
-
-function setOperatorProperty<T extends keyof Box>(
-  selectedEntity: Selection,
-  property: T,
-  value: Box[T]
-) {
-  let key: Coordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
-  let area = areas.get(key);
-  if (area?.operatorBox) {
-    area.operatorBox[property] = value;
-  }
 }
 
 function draw() {
@@ -124,12 +112,7 @@ function draw() {
   }
 
   // draw line from selected box to nearest box (if dragging)
-  if (
-    dragging &&
-    selectedEntity &&
-    selectedEntity.new &&
-    selectedEntity?.operator
-  ) {
+  if (selectedEntity && selectedEntity.new && selectedEntity?.operator) {
     ctx.beginPath();
     ctx.moveTo(
       selectedEntity.startX + boxSize,
@@ -194,8 +177,6 @@ function getClosestArea(x: number, y: number): Area | undefined {
 
 // box selection or new box
 canvas.addEventListener("mousedown", function (event) {
-  dragging = true;
-
   let { x, y } = getMousePos(canvas, event);
   let area = getClosestArea(x, y);
 
@@ -280,15 +261,13 @@ function createOperator({
 }): Operator {
   let newOperator: Operator = createBox({ x, y }) as Operator;
   newOperator.operator = "+";
-  newOperator.boxLength = boxLength || 1;
+  newOperator.boxLength = boxLength || 0;
 
   return newOperator;
 }
 
-// dragging
 canvas.addEventListener("mousemove", function (event) {
   if (!selectedEntity) {
-    dragging = false;
     return;
   }
 
@@ -309,7 +288,6 @@ canvas.addEventListener("mousemove", function (event) {
 
 // dropping
 canvas.addEventListener("mouseup", function (event) {
-  dragging = false;
   if (!selectedEntity) {
     return;
   }
