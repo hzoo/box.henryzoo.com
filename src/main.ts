@@ -294,7 +294,8 @@ canvas.addEventListener("mouseup", function (event) {
 
   let area = areas.get(`${selectedEntity.startX},${selectedEntity.startY}`)!;
 
-  if (!selectedEntity.new && previewCoordinate) {
+  // when moving existing boxes around
+  if (!selectedEntity.new) {
     if (area) {
       // delete old box
       if (isOperator(selectedEntity)) {
@@ -304,8 +305,8 @@ canvas.addEventListener("mouseup", function (event) {
       }
     }
 
-    let x = previewCoordinate.x;
-    let y = previewCoordinate.y;
+    let x = previewCoordinate!.x;
+    let y = previewCoordinate!.y;
     let key: Coordinates = `${x},${y}`;
 
     // if new area
@@ -340,6 +341,7 @@ canvas.addEventListener("mouseup", function (event) {
     }
     previewCoordinate = undefined;
   } else if (selectedEntity.new) {
+    // set rounded boxLength if new operator
     if (area?.operatorBox) {
       area.operatorBox.boxLength = Math.round(
         Math.sqrt(
