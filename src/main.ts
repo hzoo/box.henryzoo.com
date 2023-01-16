@@ -292,7 +292,8 @@ canvas.addEventListener("mouseup", function (event) {
     return;
   }
 
-  let area = areas.get(`${selectedEntity.startX},${selectedEntity.startY}`)!;
+  let coord: Coordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
+  let area = areas.get(coord)!;
 
   // when moving existing boxes around
   if (!selectedEntity.new) {
@@ -325,19 +326,33 @@ canvas.addEventListener("mouseup", function (event) {
       }
     } else {
       // if existing area
+
       if (isOperator(selectedEntity)) {
-        // add operator back to old area with starting coordinates
-        areas.get(
-          `${selectedEntity.startX},${selectedEntity.startY}`
-        )!.operatorBox = {
-          ...selectedEntity,
-          x: selectedEntity.startX,
-          y: selectedEntity.startY,
-        };
+        // if area already has operator
+        if (areas.get(key)!.operatorBox) {
+          // add operator to old area
+          areas.get(coord)!.operatorBox = {
+            ...selectedEntity,
+            x: selectedEntity.startX,
+            y: selectedEntity.startY,
+          };
+        } else {
+          // add operator to existing area
+          areas.get(key)!.operatorBox = {
+            ...selectedEntity,
+            x,
+            y,
+          };
+        }
       } else {
         // add box to existing area
         areas.get(key)!.boxes.push({ ...(selectedEntity as Box), x, y });
       }
+    }
+
+    // delete area if empty
+    if (isAreaEmpty(coord)) {
+      areas.delete(coord);
     }
     previewCoordinate = undefined;
   } else if (selectedEntity.new) {
