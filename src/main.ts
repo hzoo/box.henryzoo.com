@@ -131,7 +131,7 @@ function draw() {
 
       // draw operator
       ctx.fillText(
-        operatorBox.operator,
+        `${operatorBox.operator}${operatorBox.value}`,
         operatorBox.x + boxSize / 2,
         operatorBox.y + boxSize + 20
       );
