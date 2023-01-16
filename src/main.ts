@@ -296,7 +296,7 @@ canvas.addEventListener("mouseup", function (event) {
   let area = areas.get(coord)!;
 
   // when moving existing boxes around
-  if (!selectedEntity.new) {
+  if (!selectedEntity.new && previewCoordinate) {
     if (area) {
       // delete old box
       if (isOperator(selectedEntity)) {
@@ -306,8 +306,8 @@ canvas.addEventListener("mouseup", function (event) {
       }
     }
 
-    let x = previewCoordinate!.x;
-    let y = previewCoordinate!.y;
+    let x = previewCoordinate.x;
+    let y = previewCoordinate.y;
     let key: Coordinates = `${x},${y}`;
 
     // if new area
