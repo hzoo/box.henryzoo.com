@@ -175,8 +175,101 @@ function getClosestArea(x: number, y: number): Area | undefined {
   return undefined;
 }
 
+function createContextMenu() {
+  // menu needs to show up over the canvas correctly
+  let contextMenu = document.createElement("div");
+  contextMenu.classList.add("context-menu");
+
+  contextMenu.innerHTML = `
+      <div class="context-menu-item" data-action="delete">Delete</div>
+    `;
+  contextMenu.style.position = "absolute";
+  // menu should have a border and padding
+  contextMenu.style.padding = "10px";
+  contextMenu.style.border = "1px solid black";
+  contextMenu.style.backgroundColor = "white";
+
+  // add event listener to menu items
+  contextMenu.addEventListener("click", function (event: Event) {
+    let action = (event.target as HTMLInputElement).getAttribute("data-action");
+    if (action === "delete") {
+      // delete selected box
+      if (selectedEntity) {
+        let area = getClosestArea(selectedEntity.x, selectedEntity.y);
+        if (area) {
+          if (selectedEntity.operator) {
+            area.operatorBox = undefined;
+          } else {
+            area.boxes = area.boxes.filter(
+              (box) => box !== selectedEntity
+            ) as Selection[];
+          }
+
+          let coord: Coordinates = `${selectedEntity.x},${selectedEntity.y}`;
+          if (isAreaEmpty(coord)) {
+            areas.delete(coord);
+          }
+        }
+      }
+    }
+    selectedEntity = undefined;
+    hideContextMenu();
+  });
+
+  document.body.appendChild(contextMenu);
+  return contextMenu;
+}
+
+function hideContextMenu() {
+  let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
+  if (contextMenu) {
+    contextMenu.style.display = "none";
+  }
+}
+
+canvas.addEventListener("contextmenu", function (event) {
+  // Prevent the default context menu from appearing
+  event.preventDefault();
+
+  // Get the mouse position
+  let { x, y } = getMousePos(canvas, event);
+  let area = getClosestArea(x, y);
+
+  // existing area
+  if (area) {
+    if (area.boxes.length > 0) {
+      // select last box
+      selectedEntity = area.boxes[area.boxes.length - 1] as Selection;
+    } else if (area.operatorBox) {
+      // select operator
+      selectedEntity = area.operatorBox as Selection;
+    }
+  }
+
+  if (selectedEntity) {
+    // create context menu
+    // check if menu already exists in dom with class context-menu
+    let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
+
+    if (!contextMenu) {
+      contextMenu = createContextMenu();
+    }
+
+    contextMenu.style.display = "block";
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.top = `${y}px`;
+  }
+});
+
 // box selection or new box
 canvas.addEventListener("mousedown", function (event) {
+  // only left click
+  if (event.button !== 0) {
+    return;
+  }
+
+  hideContextMenu();
+
   let { x, y } = getMousePos(canvas, event);
   let area = getClosestArea(x, y);
 
@@ -376,6 +469,8 @@ document.addEventListener("keydown", function (event) {
   if (event.key === "c") {
     areas.clear();
     draw();
+  } else if (event.key === "Escape") {
+    hideContextMenu();
   }
 });
 
