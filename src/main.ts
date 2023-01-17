@@ -125,7 +125,9 @@ function draw() {
     ctx.stroke();
   }
 
-  for (let { operatorBox, boxes } of areas.values()) {
+  for (let area of areas.values()) {
+    let { operatorBox, boxes } = area;
+
     // draw each operator
     if (operatorBox) {
       drawBorder(operatorBox.x, operatorBox.y, boxSize, true);
@@ -142,6 +144,37 @@ function draw() {
 
     // draw each box
     for (let box of boxes) {
+      // drawBorder(box.x, box.y, boxSize);
+      if (operatorBox) {
+        // animate the box towards the end of the operator box
+        let endX = operatorBox.x + (operatorBox.boxLength + 1) * boxSize;
+        // let endY = operatorBox.y + (operatorBox.boxLength + 1) * boxSize;
+
+        box.x += (endX - box.x) * 0.05;
+        // box.y += (endY - box.y) * 0.05;
+
+        if (box.x + 0.01 >= endX) {
+          // || box.y > endY
+          box.x = endX;
+          // box.y = endY;
+
+          // remove box from area
+          area.boxes = area.boxes.filter((b) => b !== box);
+
+          // add box to new area based on x and y
+          let newArea = getClosestArea(box.x, box.y);
+          if (newArea) {
+            newArea.boxes.push(box);
+          } else {
+            // create new area
+            let newArea: Area = {
+              boxes: [box],
+              operatorBox: undefined,
+            };
+            areas.set(`${box.x},${box.y}`, newArea);
+          }
+        }
+      }
       drawBorder(box.x, box.y, boxSize);
 
       // value
@@ -387,17 +420,17 @@ canvas.addEventListener("mouseup", function (event) {
     return;
   }
 
-  let coord: Coordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
-  let area = areas.get(coord)!;
+  let oldCoord: Coordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
+  let oldArea = areas.get(oldCoord)!;
 
   // when moving existing boxes around
   if (!selectedEntity.new && previewCoordinate) {
-    if (area) {
+    if (oldArea) {
       // delete old box
       if (isOperator(selectedEntity)) {
-        area!.operatorBox = undefined;
-      } else if (area.boxes) {
-        area.boxes = area.boxes.filter((box) => box !== selectedEntity);
+        oldArea!.operatorBox = undefined;
+      } else if (oldArea.boxes) {
+        oldArea.boxes = oldArea.boxes.filter((box) => box !== selectedEntity);
       }
     }
 
@@ -426,7 +459,7 @@ canvas.addEventListener("mouseup", function (event) {
         // if area already has operator
         if (areas.get(key)!.operatorBox) {
           // add operator to old area
-          areas.get(coord)!.operatorBox = {
+          areas.get(oldCoord)!.operatorBox = {
             ...selectedEntity,
             x: selectedEntity.startX,
             y: selectedEntity.startY,
@@ -440,20 +473,42 @@ canvas.addEventListener("mouseup", function (event) {
           };
         }
       } else {
+        let selectedBox = selectedEntity as Box;
+
+        // get new area based on key
+        let area = areas.get(key)!;
+
+        // apply operation to selected box
+        if (area.operatorBox) {
+          let operator = area.operatorBox.operator;
+          let operatorValue = area.operatorBox.value;
+          let boxValue = selectedBox.value;
+
+          if (operator === "+") {
+            selectedBox.value = operatorValue + boxValue;
+          } else if (operator === "-") {
+            selectedBox.value = operatorValue - boxValue;
+          } else if (operator === "*") {
+            selectedBox.value = operatorValue * boxValue;
+          } else if (operator === "/") {
+            selectedBox.value = operatorValue / boxValue;
+          }
+        }
+
         // add box to existing area
-        areas.get(key)!.boxes.push({ ...(selectedEntity as Box), x, y });
+        area.boxes.push({ ...selectedBox, x, y });
       }
     }
 
     // delete area if empty
-    if (isAreaEmpty(coord)) {
-      areas.delete(coord);
+    if (isAreaEmpty(oldCoord)) {
+      areas.delete(oldCoord);
     }
     previewCoordinate = undefined;
   } else if (selectedEntity.new) {
     // set rounded boxLength if new operator
-    if (area?.operatorBox) {
-      area.operatorBox.boxLength = Math.round(
+    if (oldArea?.operatorBox) {
+      oldArea.operatorBox.boxLength = Math.round(
         Math.sqrt(
           Math.pow(selectedEntity.x - selectedEntity.startX, 2) +
             Math.pow(selectedEntity.y - selectedEntity.startY, 2)
