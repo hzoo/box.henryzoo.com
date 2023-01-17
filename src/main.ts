@@ -54,6 +54,7 @@ window.areas = areas;
 
 // if dragging
 let selectedEntity: Selection | undefined = undefined;
+let inspectedEntity: Operator | undefined = undefined;
 let previewCoordinate: Coord | undefined = undefined;
 let offset: Coord = {
   x: 0,
@@ -193,26 +194,25 @@ function createContextMenu() {
   contextMenu.addEventListener("click", function (event: Event) {
     let action = (event.target as HTMLInputElement).getAttribute("data-action");
     if (action === "delete") {
-      // delete selected box
-      if (selectedEntity) {
-        let area = getClosestArea(selectedEntity.x, selectedEntity.y);
+      if (inspectedEntity) {
+        let area = getClosestArea(inspectedEntity.x, inspectedEntity.y);
         if (area) {
-          if (selectedEntity.operator) {
+          if (inspectedEntity.operator) {
             area.operatorBox = undefined;
           } else {
             area.boxes = area.boxes.filter(
-              (box) => box !== selectedEntity
+              (box) => box !== inspectedEntity
             ) as Selection[];
           }
 
-          let coord: Coordinates = `${selectedEntity.x},${selectedEntity.y}`;
+          let coord: Coordinates = `${inspectedEntity.x},${inspectedEntity.y}`;
           if (isAreaEmpty(coord)) {
             areas.delete(coord);
           }
         }
       }
     }
-    selectedEntity = undefined;
+    inspectedEntity = undefined;
     hideContextMenu();
   });
 
@@ -239,14 +239,12 @@ canvas.addEventListener("contextmenu", function (event) {
   if (area) {
     if (area.boxes.length > 0) {
       // select last box
-      selectedEntity = area.boxes[area.boxes.length - 1] as Selection;
+      inspectedEntity = area.boxes[area.boxes.length - 1] as Selection;
     } else if (area.operatorBox) {
       // select operator
-      selectedEntity = area.operatorBox as Selection;
+      inspectedEntity = area.operatorBox as Selection;
     }
-  }
 
-  if (selectedEntity) {
     // create context menu
     // check if menu already exists in dom with class context-menu
     let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
@@ -268,7 +266,11 @@ canvas.addEventListener("mousedown", function (event) {
     return;
   }
 
-  hideContextMenu();
+  // if context menu is open, close it
+  if (document.querySelector(".context-menu")) {
+    hideContextMenu();
+    return;
+  }
 
   let { x, y } = getMousePos(canvas, event);
   let area = getClosestArea(x, y);
