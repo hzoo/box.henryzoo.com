@@ -122,9 +122,12 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = "black";
 
-  // grid dots
-  for (let i = 0; i < canvas.width; i += GRID_SIZE) {
-    for (let j = 0; j < canvas.height; j += GRID_SIZE) {
+  let startX = -pan.x + (pan.x % GRID_SIZE);
+  let startY = -pan.y + (pan.y % GRID_SIZE);
+  let endX = startX + canvas.width;
+  let endY = startY + canvas.height;
+  for (let i = startX; i < endX; i += GRID_SIZE) {
+    for (let j = startY; j < endY; j += GRID_SIZE) {
       fillRect(i, j, 2);
     }
   }
