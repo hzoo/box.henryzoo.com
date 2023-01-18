@@ -15,7 +15,7 @@ type Box = Coord & {
 type Operator = Box & {
   operator: string;
   outputLocations: Coord[];
-  applyOperation?: (box: Box) => void;
+  applyOperation?: (box: Box) => any;
 };
 
 type Area = {
@@ -146,11 +146,19 @@ function draw() {
       drawBorder(operatorBox.x, operatorBox.y, boxSize, true);
 
       // draw operator
-      ctx.fillText(
-        `${operatorBox.operator}${operatorBox.value}`,
-        operatorBox.x + boxSize / 2,
-        operatorBox.y + boxSize + 20
-      );
+      if (operatorBox.applyOperation) {
+        ctx.fillText(
+          `${operatorBox.operator}`,
+          operatorBox.x + boxSize / 2,
+          operatorBox.y + boxSize + 20
+        );
+      } else {
+        ctx.fillText(
+          `${operatorBox.operator}${operatorBox.value}`,
+          operatorBox.x + boxSize / 2,
+          operatorBox.y + boxSize + 20
+        );
+      }
 
       // @dev draw line out of box moved to animateLine()
     }
@@ -161,18 +169,24 @@ function draw() {
       if (operatorBox && !box.updated) {
         // change box value
         if (box.x == operatorBox.x && box.y == operatorBox.y) {
-          let operator = operatorBox.operator;
-          let operatorValue = operatorBox.value;
-          let boxValue = box.value;
+          // if applyOperation is true, apply the operation to the box
+          if (operatorBox.applyOperation) {
+            box.value = operatorBox.applyOperation(box);
+          } else {
+            let operator = operatorBox.operator;
 
-          if (operator === "+") {
-            box.value = operatorValue + boxValue;
-          } else if (operator === "-") {
-            box.value = operatorValue - boxValue;
-          } else if (operator === "*") {
-            box.value = operatorValue * boxValue;
-          } else if (operator === "/") {
-            box.value = operatorValue / boxValue;
+            let operatorValue = operatorBox.value;
+            let boxValue = box.value;
+
+            if (operator === "+") {
+              box.value = operatorValue + boxValue;
+            } else if (operator === "-") {
+              box.value = operatorValue - boxValue;
+            } else if (operator === "*") {
+              box.value = operatorValue * boxValue;
+            } else if (operator === "/") {
+              box.value = operatorValue / boxValue;
+            }
           }
         }
 
@@ -448,14 +462,24 @@ function createOperator({
   x,
   y,
   value,
+  applyOperation,
 }: {
   x: number;
   y: number;
   value?: number;
+  applyOperation?: (box: Box) => any;
 }): Operator {
   let newOperator: Operator = createBox({ x, y }) as Operator;
   newOperator.value = value || 1;
-  newOperator.operator = "+";
+
+  if (applyOperation) {
+    newOperator.applyOperation = applyOperation;
+    newOperator.operator = applyOperation.name;
+    // newOperator.operator = applyOperation.toString();
+  } else {
+    newOperator.operator = "+";
+  }
+
   newOperator.outputLocations = [
     {
       x: newOperator.x + boxSize,
@@ -673,27 +697,36 @@ function addOperatorToArea({
   x,
   y,
   value,
+  applyOperation,
 }: {
   x: number;
   y: number;
   value?: number;
+  applyOperation?: (box: Box) => any;
 }) {
   let area = getClosestArea(x, y);
   if (area) {
-    area.operatorBox = createOperator({ x, y, value });
+    area.operatorBox = createOperator({ x, y, value, applyOperation });
   } else {
     areas.set(`${x},${y}`, {
       boxes: [],
-      operatorBox: createOperator({ x, y, value }),
+      operatorBox: createOperator({ x, y, value, applyOperation }),
     });
   }
 }
+
+let double = (b: Box) => b.value * 2;
 
 function init() {
   addBoxToArea({ x: 0, y: 0 });
   addOperatorToArea({ x: 50, y: 50 });
   addOperatorToArea({ x: 100, y: 100, value: 2 });
   addOperatorToArea({ x: 150, y: 150, value: 4 });
+  addOperatorToArea({
+    x: 200,
+    y: 200,
+    applyOperation: double,
+  });
   addBoxToArea({ x: 0, y: 200, value: 10000 });
   addBoxToArea({ x: 50, y: 200, value: 100 });
   addBoxToArea({ x: 100, y: 200, value: 1000 });
