@@ -90,6 +90,7 @@ function drawBorder(x: number, y: number, size: number, dotted = false) {
 function draw() {
   // clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "black";
 
   // grid dots
   for (var x = 0; x < canvas.width; x += boxSize) {
@@ -127,6 +128,7 @@ function draw() {
 
   for (let area of areas.values()) {
     let { operatorBox, boxes } = area;
+    ctx.strokeStyle = "black";
 
     // draw each operator
     if (operatorBox) {
@@ -146,6 +148,23 @@ function draw() {
     for (let box of boxes) {
       // drawBorder(box.x, box.y, boxSize);
       if (operatorBox) {
+        // change box value
+        if (box.x == operatorBox.x) {
+          let operator = operatorBox.operator;
+          let operatorValue = operatorBox.value;
+          let boxValue = box.value;
+
+          if (operator === "+") {
+            box.value = operatorValue + boxValue;
+          } else if (operator === "-") {
+            box.value = operatorValue - boxValue;
+          } else if (operator === "*") {
+            box.value = operatorValue * boxValue;
+          } else if (operator === "/") {
+            box.value = operatorValue / boxValue;
+          }
+        }
+
         // animate the box towards the end of the operator box
         let endX = operatorBox.x + (operatorBox.boxLength + 1) * boxSize;
         // let endY = operatorBox.y + (operatorBox.boxLength + 1) * boxSize;
@@ -153,7 +172,7 @@ function draw() {
         box.x += (endX - box.x) * 0.05;
         // box.y += (endY - box.y) * 0.05;
 
-        if (box.x + 0.01 >= endX) {
+        if (box.x + 1 >= endX) {
           // || box.y > endY
           box.x = endX;
           // box.y = endY;
@@ -184,6 +203,24 @@ function draw() {
         text,
         box.x + boxSize / 2 - textWidth / 2,
         box.y + boxSize / 2
+      );
+    }
+
+    if (boxes.length > 1) {
+      ctx.beginPath();
+      ctx.arc(
+        boxes[0].x + boxSize + 7,
+        boxes[0].y + boxSize + 8,
+        9,
+        0,
+        2 * Math.PI
+      );
+      ctx.strokeStyle = "#f87171";
+      ctx.stroke();
+      ctx.fillText(
+        `${boxes.length}`,
+        boxes[0].x + boxSize + 7,
+        boxes[0].y + boxSize + 9
       );
     }
   }
@@ -299,8 +336,8 @@ canvas.addEventListener("mousedown", function (event) {
     return;
   }
 
-  // if context menu is open, close it
-  if (document.querySelector(".context-menu")) {
+  let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
+  if (contextMenu && contextMenu.style.display !== "none") {
     hideContextMenu();
     return;
   }
@@ -382,12 +419,15 @@ function createOperator({
   x,
   y,
   boxLength,
+  value,
 }: {
   x: number;
   y: number;
   boxLength?: number;
+  value?: number;
 }): Operator {
   let newOperator: Operator = createBox({ x, y }) as Operator;
+  newOperator.value = value || 1;
   newOperator.operator = "+";
   newOperator.boxLength = boxLength || 0;
 
@@ -473,29 +513,11 @@ canvas.addEventListener("mouseup", function (event) {
           };
         }
       } else {
-        let selectedBox = selectedEntity as Box;
-
         // get new area based on key
         let area = areas.get(key)!;
 
-        // apply operation to selected box
-        if (area.operatorBox) {
-          let operator = area.operatorBox.operator;
-          let operatorValue = area.operatorBox.value;
-          let boxValue = selectedBox.value;
-
-          if (operator === "+") {
-            selectedBox.value = operatorValue + boxValue;
-          } else if (operator === "-") {
-            selectedBox.value = operatorValue - boxValue;
-          } else if (operator === "*") {
-            selectedBox.value = operatorValue * boxValue;
-          } else if (operator === "/") {
-            selectedBox.value = operatorValue / boxValue;
-          }
-        }
-
         // add box to existing area
+        let selectedBox = selectedEntity as Box;
         area.boxes.push({ ...selectedBox, x, y });
       }
     }
@@ -565,6 +587,9 @@ function animateBoxLines() {
             operatorBox.x + boxSize + operatorBox.boxLength * boxSize,
             operatorBox.y + boxSize / 2
           );
+          // different color for moving line, so it's easier to see
+          // not too bright green
+          ctx.strokeStyle = "#78350f";
           ctx.stroke();
         }
       }
@@ -594,18 +619,20 @@ function addOperatorToArea({
   x,
   y,
   boxLength = 1,
+  value,
 }: {
   x: number;
   y: number;
   boxLength?: number;
+  value?: number;
 }) {
   let area = getClosestArea(x, y);
   if (area) {
-    area.operatorBox = createOperator({ x, y, boxLength });
+    area.operatorBox = createOperator({ x, y, boxLength, value });
   } else {
     areas.set(`${x},${y}`, {
       boxes: [],
-      operatorBox: createOperator({ x, y, boxLength }),
+      operatorBox: createOperator({ x, y, boxLength, value }),
     });
   }
 }
@@ -613,8 +640,10 @@ function addOperatorToArea({
 function init() {
   addBoxToArea({ x: 0, y: 0 });
   addOperatorToArea({ x: 50, y: 50 });
-  addOperatorToArea({ x: 100, y: 100, boxLength: 2 });
-  addOperatorToArea({ x: 150, y: 150, boxLength: 4 });
+  addOperatorToArea({ x: 100, y: 100, boxLength: 2, value: 2 });
+  addOperatorToArea({ x: 150, y: 150, boxLength: 4, value: 4 });
+  addBoxToArea({ x: 200, y: 200 });
+  addBoxToArea({ x: 200, y: 200 });
 
   animateBoxLines();
   requestAnimationFrame(draw);
