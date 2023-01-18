@@ -55,6 +55,11 @@ let offset: Coord = {
   x: 0,
   y: 0,
 };
+let spacePressed = false;
+let pan: Coord = {
+  x: 0,
+  y: 0,
+};
 
 function _isEmptyArea(area: Area): boolean {
   return area.boxes.length === 0 && area.operatorBox === undefined;
@@ -83,11 +88,33 @@ function drawBorder(x: number, y: number, size: number, dotted = false) {
   } else {
     ctx.setLineDash([]);
   }
-  ctx.strokeRect(x, y, size, size);
-  // ctx.beginPath();
-  // @ts-ignore
-  // ctx.roundRect(x, y, size, size, 10);
-  // ctx.stroke();
+  let { x: _x, y: _y } = applyPan(x, y);
+  ctx.strokeRect(_x, _y, size, size);
+}
+
+function applyPan(x: number, y: number): { x: number; y: number } {
+  return { x: x + pan.x, y: y + pan.y };
+}
+
+// wrap fn to add pan
+function fillRect(x: number, y: number, size: number) {
+  let { x: _x, y: _y } = applyPan(x, y);
+  ctx.fillRect(_x, _y, size, size);
+}
+
+// wrap fn to fill text
+function fillText(text: string, x: number, y: number) {
+  let { x: _x, y: _y } = applyPan(x, y);
+  ctx.fillText(text, _x, _y);
+}
+
+function drawLine(startCoord: Coord, endCoord: Coord) {
+  let { x: startX, y: startY } = applyPan(startCoord.x, startCoord.y);
+  let { x: endX, y: endY } = applyPan(endCoord.x, endCoord.y);
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
 }
 
 function draw() {
@@ -96,21 +123,16 @@ function draw() {
   ctx.strokeStyle = "black";
 
   // grid dots
-  for (var x = 0; x < canvas.width; x += GRID_SIZE) {
-    for (var y = 0; y < canvas.height; y += GRID_SIZE) {
-      ctx.fillRect(x, y, 2, 2);
+  for (let i = 0; i < canvas.width; i += GRID_SIZE) {
+    for (let j = 0; j < canvas.height; j += GRID_SIZE) {
+      fillRect(i, j, 2);
     }
   }
 
   // preview box (where it would be placed if dropped on mouseup)
   if (previewCoordinate) {
     ctx.fillStyle = "#F1F5F9";
-    ctx.fillRect(
-      previewCoordinate.x,
-      previewCoordinate.y,
-      GRID_SIZE,
-      GRID_SIZE
-    );
+    fillRect(previewCoordinate.x, previewCoordinate.y, GRID_SIZE);
 
     // debug
     // ctx.fillStyle = "black";
@@ -128,20 +150,16 @@ function draw() {
     selectedEntity?.operator &&
     previewCoordinate
   ) {
-    ctx.beginPath();
-
-    let start = {
-      x: selectedEntity.startX + GRID_SIZE / 2,
-      y: selectedEntity.startY + GRID_SIZE / 2,
-    };
-    let end = {
-      x: previewCoordinate.x + GRID_SIZE / 2,
-      y: previewCoordinate.y + GRID_SIZE / 2,
-    };
-
-    ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
-    ctx.stroke();
+    drawLine(
+      {
+        x: selectedEntity.startX + GRID_SIZE / 2,
+        y: selectedEntity.startY + GRID_SIZE / 2,
+      },
+      {
+        x: previewCoordinate.x + GRID_SIZE / 2,
+        y: previewCoordinate.y + GRID_SIZE / 2,
+      }
+    );
   }
 
   for (let area of areas.values()) {
@@ -154,13 +172,13 @@ function draw() {
 
       // draw operator
       if (operatorBox.applyOperation) {
-        ctx.fillText(
+        fillText(
           `${operatorBox.operator}`,
           operatorBox.x + GRID_SIZE / 2,
           operatorBox.y + GRID_SIZE + 20
         );
       } else {
-        ctx.fillText(
+        fillText(
           `${operatorBox.operator}${operatorBox.value}`,
           operatorBox.x + GRID_SIZE / 2,
           operatorBox.y + GRID_SIZE + 20
@@ -237,29 +255,24 @@ function draw() {
 
       drawBorder(box.x, box.y, GRID_SIZE);
 
-      // value
+      // draw value
       let text = box.value.toString();
-      // var textWidth = ctx.measureText(text).width;
-      ctx.fillText(
-        text,
-        // box.x + GRID_SIZE / 2 - textWidth / 2,
-        box.x + GRID_SIZE / 2,
-        box.y + GRID_SIZE / 2
-      );
+      fillText(text, box.x + GRID_SIZE / 2, box.y + GRID_SIZE / 2);
     }
 
+    // draw number of boxes in area in a circle
     if (boxes.length > 1) {
       ctx.beginPath();
       ctx.arc(
-        boxes[0].x + GRID_SIZE + 7,
-        boxes[0].y + GRID_SIZE + 8,
+        boxes[0].x + GRID_SIZE + 7 + pan.x,
+        boxes[0].y + GRID_SIZE + 8 + pan.y,
         9,
         0,
         2 * Math.PI
       );
       ctx.strokeStyle = "#f87171";
       ctx.stroke();
-      ctx.fillText(
+      fillText(
         `${boxes.length}`,
         boxes[0].x + GRID_SIZE + 7,
         boxes[0].y + GRID_SIZE + 9
@@ -374,7 +387,7 @@ canvas.addEventListener("contextmenu", function (event) {
 // box selection or new box
 function handleMousedown(event: MouseEvent): void {
   // only left click
-  if (event.button !== 0) {
+  if (event.button !== 0 || spacePressed) {
     return;
   }
 
@@ -499,6 +512,11 @@ function createOperator({
 
 function handleDrag(event: MouseEvent): void {
   if (!selectedEntity) {
+    if (spacePressed) {
+      pan.x += event.movementX;
+      pan.y += event.movementY;
+      draw();
+    }
     return;
   }
 
@@ -645,17 +663,14 @@ function animateBoxLines() {
               y: outputLocation.y + GRID_SIZE / 2,
             };
 
-            ctx.beginPath();
             ctx.setLineDash([dotSize, dotSpacing]);
             ctx.lineDashOffset = -Math.round(
               progress * (dotSize + dotSpacing) * dotCount
             );
-            ctx.moveTo(start.x, start.y);
-            ctx.lineTo(end.x, end.y);
             // different color for moving line, so it's easier to see
-            // not too bright green
             ctx.strokeStyle = "#78350f";
-            ctx.stroke();
+            // draw line
+            drawLine(start, end);
           }
         }
       }
@@ -725,6 +740,14 @@ function init() {
       draw();
     } else if (event.key === "Escape") {
       hideContextMenu();
+    } else if (event.key === " ") {
+      spacePressed = true;
+    }
+  });
+
+  document.addEventListener("keyup", function (event) {
+    if (event.key === " ") {
+      spacePressed = false;
     }
   });
 
