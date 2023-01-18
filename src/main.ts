@@ -33,7 +33,7 @@ function isOperator(entity: Box | Operator): entity is Operator {
   return (entity as Operator).operator !== undefined;
 }
 
-const canvas = document.querySelector("#paper") as HTMLCanvasElement;
+const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
 let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 let GRID_SIZE = 50;
 ctx.textAlign = "center";
@@ -512,7 +512,8 @@ function createOperator({
 
 function handleDrag(event: MouseEvent): void {
   if (!selectedEntity) {
-    if (spacePressed) {
+    if (event.buttons === 1 && spacePressed) {
+      canvas.style.cursor = "grabbing";
       pan.x += event.movementX;
       pan.y += event.movementY;
       draw();
@@ -535,6 +536,7 @@ function handleDrag(event: MouseEvent): void {
 }
 
 function handleDrop(event: MouseEvent): void {
+  canvas.style.cursor = "default";
   if (!selectedEntity) {
     return;
   }
@@ -742,11 +744,13 @@ function init() {
       hideContextMenu();
     } else if (event.key === " ") {
       spacePressed = true;
+      canvas.style.cursor = "grab";
     }
   });
 
   document.addEventListener("keyup", function (event) {
     if (event.key === " ") {
+      canvas.style.cursor = "default";
       spacePressed = false;
     }
   });

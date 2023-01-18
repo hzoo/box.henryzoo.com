@@ -9,12 +9,21 @@
       body {
         background: white;
         margin: 0;
+        padding: 0;
+      }
+      #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
       }
     </style>
   </head>
   <body>
-    <div id="app"></div>
-    <canvas id="paper" width="600" height="600"></canvas>
+    <div id="app">
+      <canvas id="canvas" width="600" height="600"></canvas>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
