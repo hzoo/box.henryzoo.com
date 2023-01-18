@@ -1,6 +1,6 @@
 export {};
 
-type Coordinates = `${number},${number}`;
+type MapCoordinates = `${number},${number}`;
 
 type Coord = {
   x: number;
@@ -9,11 +9,12 @@ type Coord = {
 
 type Box = Coord & {
   value: number;
+  updated?: boolean; // already operated on in loop
 };
 
 type Operator = Box & {
   operator: string;
-  boxLength: number;
+  outputLocations: Coord[];
   applyOperation?: (box: Box) => void;
 };
 
@@ -36,7 +37,7 @@ function _isEmptyArea(area: Area): boolean {
   return area.boxes.length === 0 && area.operatorBox === undefined;
 }
 
-function isAreaEmpty(key: Coordinates): boolean {
+function isAreaEmpty(key: MapCoordinates): boolean {
   return !areas.has(key) || _isEmptyArea(areas.get(key) as Area);
 }
 
@@ -48,7 +49,7 @@ ctx.textBaseline = "middle";
 ctx.font = `${boxSize / 4}px Arial`;
 
 // coordinate areas contain boxes and potential operator
-let areas: Map<Coordinates, Area> = new Map();
+let areas: Map<MapCoordinates, Area> = new Map();
 // @ts-ignore
 window.areas = areas;
 
@@ -113,16 +114,26 @@ function draw() {
     // );
   }
 
-  // draw line from selected box to nearest box (if dragging)
-  if (selectedEntity && selectedEntity.new && selectedEntity?.operator) {
+  // draw operator line
+  if (
+    selectedEntity &&
+    selectedEntity.new &&
+    selectedEntity?.operator &&
+    previewCoordinate
+  ) {
     ctx.beginPath();
-    ctx.moveTo(
-      selectedEntity.startX + boxSize,
-      selectedEntity.startY + boxSize / 2
-    );
-    // lineTo nearest dot/box
-    let { x, y } = getClosestGrid(selectedEntity.x, selectedEntity.y);
-    ctx.lineTo(x, y + boxSize / 2);
+
+    let start = {
+      x: selectedEntity.startX + boxSize / 2,
+      y: selectedEntity.startY + boxSize / 2,
+    };
+    let end = {
+      x: previewCoordinate.x + boxSize / 2,
+      y: previewCoordinate.y + boxSize / 2,
+    };
+
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
     ctx.stroke();
   }
 
@@ -147,9 +158,9 @@ function draw() {
     // draw each box
     for (let box of boxes) {
       // drawBorder(box.x, box.y, boxSize);
-      if (operatorBox) {
+      if (operatorBox && !box.updated) {
         // change box value
-        if (box.x == operatorBox.x) {
+        if (box.x == operatorBox.x && box.y == operatorBox.y) {
           let operator = operatorBox.operator;
           let operatorValue = operatorBox.value;
           let boxValue = box.value;
@@ -166,16 +177,22 @@ function draw() {
         }
 
         // animate the box towards the end of the operator box
-        let endX = operatorBox.x + (operatorBox.boxLength + 1) * boxSize;
-        // let endY = operatorBox.y + (operatorBox.boxLength + 1) * boxSize;
+        let end = {
+          x: operatorBox.outputLocations[0].x,
+          y: operatorBox.outputLocations[0].y,
+        };
 
-        box.x += (endX - box.x) * 0.05;
-        // box.y += (endY - box.y) * 0.05;
+        box.x += (end.x - box.x) * 0.05;
+        box.y += (end.y - box.y) * 0.05;
 
-        if (box.x + 1 >= endX) {
-          // || box.y > endY
-          box.x = endX;
-          // box.y = endY;
+        // account for negative differnces using math.abs
+        if (
+          (Math.abs(end.x - box.x) < 1 && box.x !== end.x) ||
+          (Math.abs(end.y - box.y) < 1 && box.y !== end.y)
+        ) {
+          box.updated = true;
+          box.x = end.x;
+          box.y = end.y;
 
           // remove box from area
           area.boxes = area.boxes.filter((b) => b !== box);
@@ -193,7 +210,10 @@ function draw() {
             areas.set(`${box.x},${box.y}`, newArea);
           }
         }
+      } else {
+        box.updated = false;
       }
+
       drawBorder(box.x, box.y, boxSize);
 
       // value
@@ -235,10 +255,10 @@ function getMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
   };
 }
 
-// function to check closest box to mouse
+// function to check closest box Coordinate
 function getClosestArea(x: number, y: number): Area | undefined {
   let { x: closestX, y: closestY } = getClosestGrid(x, y);
-  let key: Coordinates = `${closestX},${closestY}`;
+  let key: MapCoordinates = `${closestX},${closestY}`;
   if (areas.has(key)) {
     return areas.get(key);
   }
@@ -275,7 +295,7 @@ function createContextMenu() {
             ) as Selection[];
           }
 
-          let coord: Coordinates = `${inspectedEntity.x},${inspectedEntity.y}`;
+          let coord: MapCoordinates = `${inspectedEntity.x},${inspectedEntity.y}`;
           if (isAreaEmpty(coord)) {
             areas.delete(coord);
           }
@@ -380,7 +400,7 @@ canvas.addEventListener("mousedown", function (event) {
       });
     }
 
-    let key: Coordinates = `${newEntity.x},${newEntity.y}`;
+    let key: MapCoordinates = `${newEntity.x},${newEntity.y}`;
     if (isOperator(newEntity)) {
       areas.set(key, {
         operatorBox: newEntity,
@@ -418,18 +438,21 @@ function createBox({ x, y }: { x: number; y: number }): Box {
 function createOperator({
   x,
   y,
-  boxLength,
   value,
 }: {
   x: number;
   y: number;
-  boxLength?: number;
   value?: number;
 }): Operator {
   let newOperator: Operator = createBox({ x, y }) as Operator;
   newOperator.value = value || 1;
   newOperator.operator = "+";
-  newOperator.boxLength = boxLength || 0;
+  newOperator.outputLocations = [
+    {
+      x: newOperator.x + boxSize,
+      y: newOperator.y,
+    },
+  ];
 
   return newOperator;
 }
@@ -443,12 +466,11 @@ canvas.addEventListener("mousemove", function (event) {
   selectedEntity.x = x - offset.x - boxSize / 2;
   selectedEntity.y = y - offset.y - boxSize / 2;
 
-  let closest = getClosestGrid(x, y);
-
-  // when moving existing boxes around
-  if (!selectedEntity.new) {
-    // set closest grid as "preview"
-    previewCoordinate = closest;
+  // set closest grid as "preview"
+  // only when creating new operators
+  // or when moving existing boxes
+  if ((selectedEntity.new && selectedEntity.operator) || !selectedEntity.new) {
+    previewCoordinate = getClosestGrid(x, y);
   }
 
   draw();
@@ -460,7 +482,7 @@ canvas.addEventListener("mouseup", function (event) {
     return;
   }
 
-  let oldCoord: Coordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
+  let oldCoord: MapCoordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
   let oldArea = areas.get(oldCoord)!;
 
   // when moving existing boxes around
@@ -476,7 +498,7 @@ canvas.addEventListener("mouseup", function (event) {
 
     let x = previewCoordinate.x;
     let y = previewCoordinate.y;
-    let key: Coordinates = `${x},${y}`;
+    let key: MapCoordinates = `${x},${y}`;
 
     // if new area
     if (isAreaEmpty(key)) {
@@ -526,20 +548,15 @@ canvas.addEventListener("mouseup", function (event) {
     if (isAreaEmpty(oldCoord)) {
       areas.delete(oldCoord);
     }
-    previewCoordinate = undefined;
   } else if (selectedEntity.new) {
-    // set rounded boxLength if new operator
     if (oldArea?.operatorBox) {
-      oldArea.operatorBox.boxLength = Math.round(
-        Math.sqrt(
-          Math.pow(selectedEntity.x - selectedEntity.startX, 2) +
-            Math.pow(selectedEntity.y - selectedEntity.startY, 2)
-        ) / boxSize
-      );
+      // set output location of operator to mouse area coord
+      oldArea.operatorBox.outputLocations = [previewCoordinate!];
     }
   }
 
   draw();
+  previewCoordinate = undefined;
   selectedEntity = undefined;
 });
 
@@ -568,29 +585,49 @@ function animateBoxLines() {
     }
 
     for (let { operatorBox } of areas.values()) {
-      if (operatorBox) {
-        // draw line as long as boxLength
-        if (operatorBox.boxLength && operatorBox.boxLength > 0) {
-          let dotCount = Math.floor(
-            (operatorBox.boxLength * boxSize) / (dotSize + dotSpacing)
-          );
+      if (selectedEntity) {
+        if (
+          operatorBox &&
+          operatorBox.x === selectedEntity.startX &&
+          operatorBox.y === selectedEntity.startY
+        ) {
+          continue;
+        }
+      }
 
-          ctx.beginPath();
-          ctx.setLineDash([dotSize, dotSpacing]);
-          ctx.lineDashOffset = -Math.round(
-            progress * (dotSize + dotSpacing) * dotCount
-          );
-          // ctx.moveTo(start.x, start.y);
-          // ctx.lineTo(end.x, end.y);
-          ctx.moveTo(operatorBox.x + boxSize, operatorBox.y + boxSize / 2);
-          ctx.lineTo(
-            operatorBox.x + boxSize + operatorBox.boxLength * boxSize,
-            operatorBox.y + boxSize / 2
-          );
-          // different color for moving line, so it's easier to see
-          // not too bright green
-          ctx.strokeStyle = "#78350f";
-          ctx.stroke();
+      if (operatorBox) {
+        //  draw lines to output locations
+        if (operatorBox.outputLocations) {
+          for (let outputLocation of operatorBox.outputLocations) {
+            let dotCount = Math.floor(
+              Math.sqrt(
+                Math.pow(outputLocation.x - operatorBox.x, 2) +
+                  Math.pow(outputLocation.y - operatorBox.y, 2)
+              ) /
+                (dotSize + dotSpacing)
+            );
+
+            let start = {
+              x: operatorBox.x + boxSize / 2,
+              y: operatorBox.y + boxSize / 2,
+            };
+            let end = {
+              x: outputLocation.x + boxSize / 2,
+              y: outputLocation.y + boxSize / 2,
+            };
+
+            ctx.beginPath();
+            ctx.setLineDash([dotSize, dotSpacing]);
+            ctx.lineDashOffset = -Math.round(
+              progress * (dotSize + dotSpacing) * dotCount
+            );
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            // different color for moving line, so it's easier to see
+            // not too bright green
+            ctx.strokeStyle = "#78350f";
+            ctx.stroke();
+          }
         }
       }
     }
@@ -618,21 +655,19 @@ function addBoxToArea({ x, y }: { x: number; y: number }) {
 function addOperatorToArea({
   x,
   y,
-  boxLength = 1,
   value,
 }: {
   x: number;
   y: number;
-  boxLength?: number;
   value?: number;
 }) {
   let area = getClosestArea(x, y);
   if (area) {
-    area.operatorBox = createOperator({ x, y, boxLength, value });
+    area.operatorBox = createOperator({ x, y, value });
   } else {
     areas.set(`${x},${y}`, {
       boxes: [],
-      operatorBox: createOperator({ x, y, boxLength, value }),
+      operatorBox: createOperator({ x, y, value }),
     });
   }
 }
@@ -640,8 +675,8 @@ function addOperatorToArea({
 function init() {
   addBoxToArea({ x: 0, y: 0 });
   addOperatorToArea({ x: 50, y: 50 });
-  addOperatorToArea({ x: 100, y: 100, boxLength: 2, value: 2 });
-  addOperatorToArea({ x: 150, y: 150, boxLength: 4, value: 4 });
+  addOperatorToArea({ x: 100, y: 100, value: 2 });
+  addOperatorToArea({ x: 150, y: 150, value: 4 });
   addBoxToArea({ x: 200, y: 200 });
   addBoxToArea({ x: 200, y: 200 });
 
