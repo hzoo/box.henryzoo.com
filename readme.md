@@ -11,3 +11,11 @@
   - length user-made, or lengthens based on complexity?
 - input area should also move if hovered over?
 - `+1` operator as it's own box, what if it had it's own canvas (like a google maps type zoom in and out), or like stack trace debugger that can freeze when going in and out of these boxes
+
+## metaphors
+
+- tower defense game (inputs as enemies?, blocks/functions as towers)
+- ant colony, ant mill/death spiral
+- worm inching a long
+- flock of birds migrating
+- boring factory assembly line
