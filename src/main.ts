@@ -218,10 +218,11 @@ function draw() {
 
       // value
       let text = box.value.toString();
-      var textWidth = ctx.measureText(text).width;
+      // var textWidth = ctx.measureText(text).width;
       ctx.fillText(
         text,
-        box.x + boxSize / 2 - textWidth / 2,
+        // box.x + boxSize / 2 - textWidth / 2,
+        box.x + boxSize / 2,
         box.y + boxSize / 2
       );
     }
@@ -427,8 +428,16 @@ canvas.addEventListener("mousedown", function (event) {
   }
 });
 
-function createBox({ x, y }: { x: number; y: number }): Box {
-  let newBox: Box = { x, y, value: 1 };
+function createBox({
+  x,
+  y,
+  value,
+}: {
+  x: number;
+  y: number;
+  value?: number;
+}): Box {
+  let newBox: Box = { x, y, value: value || 1 };
   newBox.x = Math.round(newBox.x / boxSize) * boxSize;
   newBox.y = Math.round(newBox.y / boxSize) * boxSize;
 
@@ -639,13 +648,21 @@ function animateBoxLines() {
 
 // add a new box to an area coordinate
 // @dev round x and y to closest grid
-function addBoxToArea({ x, y }: { x: number; y: number }) {
+function addBoxToArea({
+  x,
+  y,
+  value,
+}: {
+  x: number;
+  y: number;
+  value?: number;
+}) {
   let area = getClosestArea(x, y);
   if (area) {
-    area.boxes.push(createBox({ x, y }));
+    area.boxes.push(createBox({ x, y, value }));
   } else {
     areas.set(`${x},${y}`, {
-      boxes: [createBox({ x, y })],
+      boxes: [createBox({ x, y, value })],
     });
   }
 }
@@ -677,8 +694,9 @@ function init() {
   addOperatorToArea({ x: 50, y: 50 });
   addOperatorToArea({ x: 100, y: 100, value: 2 });
   addOperatorToArea({ x: 150, y: 150, value: 4 });
-  addBoxToArea({ x: 200, y: 200 });
-  addBoxToArea({ x: 200, y: 200 });
+  addBoxToArea({ x: 0, y: 200, value: 10000 });
+  addBoxToArea({ x: 50, y: 200, value: 100 });
+  addBoxToArea({ x: 100, y: 200, value: 1000 });
 
   animateBoxLines();
   requestAnimationFrame(draw);
