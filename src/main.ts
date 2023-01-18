@@ -33,6 +33,29 @@ function isOperator(entity: Box | Operator): entity is Operator {
   return (entity as Operator).operator !== undefined;
 }
 
+const canvas = document.querySelector("#paper") as HTMLCanvasElement;
+let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+let GRID_SIZE = 50;
+ctx.textAlign = "center";
+ctx.textBaseline = "middle";
+ctx.font = `${GRID_SIZE / 4}px Arial`;
+
+// coordinate areas contain boxes and potential operator
+let areas: Map<MapCoordinates, Area> = new Map();
+// @ts-ignore
+window.areas = areas;
+
+// on left click (existing or new)
+let selectedEntity: Selection | undefined = undefined;
+// on right click
+let inspectedEntity: Operator | undefined = undefined;
+// where the preview box would be placed if dropped on mouseup, snapped to grid
+let previewCoordinate: Coord | undefined = undefined;
+let offset: Coord = {
+  x: 0,
+  y: 0,
+};
+
 function _isEmptyArea(area: Area): boolean {
   return area.boxes.length === 0 && area.operatorBox === undefined;
 }
@@ -41,35 +64,14 @@ function isAreaEmpty(key: MapCoordinates): boolean {
   return !areas.has(key) || _isEmptyArea(areas.get(key) as Area);
 }
 
-const canvas = document.querySelector("#paper") as HTMLCanvasElement;
-let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-let boxSize = 50;
-ctx.textAlign = "center";
-ctx.textBaseline = "middle";
-ctx.font = `${boxSize / 4}px Arial`;
-
-// coordinate areas contain boxes and potential operator
-let areas: Map<MapCoordinates, Area> = new Map();
-// @ts-ignore
-window.areas = areas;
-
-// if dragging
-let selectedEntity: Selection | undefined = undefined;
-let inspectedEntity: Operator | undefined = undefined;
-let previewCoordinate: Coord | undefined = undefined;
-let offset: Coord = {
-  x: 0,
-  y: 0,
-};
-
 // This function returns the closest grid point to the point (x, y).
-// The grid is composed of squares of size boxSize. The returned grid
+// The grid is composed of squares of size GRID_SIZE. The returned grid
 // point is the highest point in the grid that is less than or equal
 // to (x, y).
 function getClosestGrid(x: number, y: number): { x: number; y: number } {
   return {
-    x: Math.round((x - boxSize / 2) / boxSize) * boxSize,
-    y: Math.round((y - boxSize / 2) / boxSize) * boxSize,
+    x: Math.round((x - GRID_SIZE / 2) / GRID_SIZE) * GRID_SIZE,
+    y: Math.round((y - GRID_SIZE / 2) / GRID_SIZE) * GRID_SIZE,
   };
 }
 
@@ -94,8 +96,8 @@ function draw() {
   ctx.strokeStyle = "black";
 
   // grid dots
-  for (var x = 0; x < canvas.width; x += boxSize) {
-    for (var y = 0; y < canvas.height; y += boxSize) {
+  for (var x = 0; x < canvas.width; x += GRID_SIZE) {
+    for (var y = 0; y < canvas.height; y += GRID_SIZE) {
       ctx.fillRect(x, y, 2, 2);
     }
   }
@@ -103,14 +105,19 @@ function draw() {
   // preview box (where it would be placed if dropped on mouseup)
   if (previewCoordinate) {
     ctx.fillStyle = "#F1F5F9";
-    ctx.fillRect(previewCoordinate.x, previewCoordinate.y, boxSize, boxSize);
+    ctx.fillRect(
+      previewCoordinate.x,
+      previewCoordinate.y,
+      GRID_SIZE,
+      GRID_SIZE
+    );
 
     // debug
     // ctx.fillStyle = "black";
     // ctx.fillText(
     //   `${previewCoordinate.x},${previewCoordinate.y}`,
-    //   previewCoordinate.x + boxSize / 2,
-    //   previewCoordinate.y + boxSize / 2
+    //   previewCoordinate.x + GRID_SIZE / 2,
+    //   previewCoordinate.y + GRID_SIZE / 2
     // );
   }
 
@@ -124,12 +131,12 @@ function draw() {
     ctx.beginPath();
 
     let start = {
-      x: selectedEntity.startX + boxSize / 2,
-      y: selectedEntity.startY + boxSize / 2,
+      x: selectedEntity.startX + GRID_SIZE / 2,
+      y: selectedEntity.startY + GRID_SIZE / 2,
     };
     let end = {
-      x: previewCoordinate.x + boxSize / 2,
-      y: previewCoordinate.y + boxSize / 2,
+      x: previewCoordinate.x + GRID_SIZE / 2,
+      y: previewCoordinate.y + GRID_SIZE / 2,
     };
 
     ctx.moveTo(start.x, start.y);
@@ -143,20 +150,20 @@ function draw() {
 
     // draw each operator
     if (operatorBox) {
-      drawBorder(operatorBox.x, operatorBox.y, boxSize, true);
+      drawBorder(operatorBox.x, operatorBox.y, GRID_SIZE, true);
 
       // draw operator
       if (operatorBox.applyOperation) {
         ctx.fillText(
           `${operatorBox.operator}`,
-          operatorBox.x + boxSize / 2,
-          operatorBox.y + boxSize + 20
+          operatorBox.x + GRID_SIZE / 2,
+          operatorBox.y + GRID_SIZE + 20
         );
       } else {
         ctx.fillText(
           `${operatorBox.operator}${operatorBox.value}`,
-          operatorBox.x + boxSize / 2,
-          operatorBox.y + boxSize + 20
+          operatorBox.x + GRID_SIZE / 2,
+          operatorBox.y + GRID_SIZE + 20
         );
       }
 
@@ -165,7 +172,7 @@ function draw() {
 
     // draw each box
     for (let box of boxes) {
-      // drawBorder(box.x, box.y, boxSize);
+      // drawBorder(box.x, box.y, GRID_SIZE);
       if (operatorBox && !box.updated) {
         // change box value
         if (box.x == operatorBox.x && box.y == operatorBox.y) {
@@ -228,24 +235,24 @@ function draw() {
         box.updated = false;
       }
 
-      drawBorder(box.x, box.y, boxSize);
+      drawBorder(box.x, box.y, GRID_SIZE);
 
       // value
       let text = box.value.toString();
       // var textWidth = ctx.measureText(text).width;
       ctx.fillText(
         text,
-        // box.x + boxSize / 2 - textWidth / 2,
-        box.x + boxSize / 2,
-        box.y + boxSize / 2
+        // box.x + GRID_SIZE / 2 - textWidth / 2,
+        box.x + GRID_SIZE / 2,
+        box.y + GRID_SIZE / 2
       );
     }
 
     if (boxes.length > 1) {
       ctx.beginPath();
       ctx.arc(
-        boxes[0].x + boxSize + 7,
-        boxes[0].y + boxSize + 8,
+        boxes[0].x + GRID_SIZE + 7,
+        boxes[0].y + GRID_SIZE + 8,
         9,
         0,
         2 * Math.PI
@@ -254,8 +261,8 @@ function draw() {
       ctx.stroke();
       ctx.fillText(
         `${boxes.length}`,
-        boxes[0].x + boxSize + 7,
-        boxes[0].y + boxSize + 9
+        boxes[0].x + GRID_SIZE + 7,
+        boxes[0].y + GRID_SIZE + 9
       );
     }
   }
@@ -365,7 +372,7 @@ canvas.addEventListener("contextmenu", function (event) {
 });
 
 // box selection or new box
-canvas.addEventListener("mousedown", function (event) {
+function handleMousedown(event: MouseEvent): void {
   // only left click
   if (event.button !== 0) {
     return;
@@ -395,8 +402,8 @@ canvas.addEventListener("mousedown", function (event) {
     selectedEntity.startX = selectedEntity.x;
     selectedEntity.startY = selectedEntity.y;
     if (selectedEntity) {
-      offset.x = x - selectedEntity.x - boxSize / 2;
-      offset.y = y - selectedEntity.y - boxSize / 2;
+      offset.x = x - selectedEntity.x - GRID_SIZE / 2;
+      offset.y = y - selectedEntity.y - GRID_SIZE / 2;
     }
     return;
   } else {
@@ -405,13 +412,13 @@ canvas.addEventListener("mousedown", function (event) {
 
     if (event.shiftKey) {
       newEntity = createOperator({
-        x: x - boxSize / 2,
-        y: y - boxSize / 2,
+        x: x - GRID_SIZE / 2,
+        y: y - GRID_SIZE / 2,
       });
     } else {
       newEntity = createBox({
-        x: x - boxSize / 2,
-        y: y - boxSize / 2,
+        x: x - GRID_SIZE / 2,
+        y: y - GRID_SIZE / 2,
       });
     }
 
@@ -440,7 +447,7 @@ canvas.addEventListener("mousedown", function (event) {
 
     draw();
   }
-});
+}
 
 function createBox({
   x,
@@ -452,8 +459,8 @@ function createBox({
   value?: number;
 }): Box {
   let newBox: Box = { x, y, value: value || 1 };
-  newBox.x = Math.round(newBox.x / boxSize) * boxSize;
-  newBox.y = Math.round(newBox.y / boxSize) * boxSize;
+  newBox.x = Math.round(newBox.x / GRID_SIZE) * GRID_SIZE;
+  newBox.y = Math.round(newBox.y / GRID_SIZE) * GRID_SIZE;
 
   return newBox;
 }
@@ -482,7 +489,7 @@ function createOperator({
 
   newOperator.outputLocations = [
     {
-      x: newOperator.x + boxSize,
+      x: newOperator.x + GRID_SIZE,
       y: newOperator.y,
     },
   ];
@@ -490,14 +497,14 @@ function createOperator({
   return newOperator;
 }
 
-canvas.addEventListener("mousemove", function (event) {
+function handleDrag(event: MouseEvent): void {
   if (!selectedEntity) {
     return;
   }
 
   let { x, y } = getMousePos(canvas, event);
-  selectedEntity.x = x - offset.x - boxSize / 2;
-  selectedEntity.y = y - offset.y - boxSize / 2;
+  selectedEntity.x = x - offset.x - GRID_SIZE / 2;
+  selectedEntity.y = y - offset.y - GRID_SIZE / 2;
 
   // set closest grid as "preview"
   // only when creating new operators
@@ -507,10 +514,9 @@ canvas.addEventListener("mousemove", function (event) {
   }
 
   draw();
-});
+}
 
-// dropping
-canvas.addEventListener("mouseup", function (event) {
+function handleDrop(event: MouseEvent): void {
   if (!selectedEntity) {
     return;
   }
@@ -591,17 +597,7 @@ canvas.addEventListener("mouseup", function (event) {
   draw();
   previewCoordinate = undefined;
   selectedEntity = undefined;
-});
-
-// clear all boxes on press c
-document.addEventListener("keydown", function (event) {
-  if (event.key === "c") {
-    areas.clear();
-    draw();
-  } else if (event.key === "Escape") {
-    hideContextMenu();
-  }
-});
+}
 
 function animateBoxLines() {
   let dotSpacing = 10;
@@ -641,12 +637,12 @@ function animateBoxLines() {
             );
 
             let start = {
-              x: operatorBox.x + boxSize / 2,
-              y: operatorBox.y + boxSize / 2,
+              x: operatorBox.x + GRID_SIZE / 2,
+              y: operatorBox.y + GRID_SIZE / 2,
             };
             let end = {
-              x: outputLocation.x + boxSize / 2,
-              y: outputLocation.y + boxSize / 2,
+              x: outputLocation.x + GRID_SIZE / 2,
+              y: outputLocation.y + GRID_SIZE / 2,
             };
 
             ctx.beginPath();
@@ -718,6 +714,20 @@ function addOperatorToArea({
 let double = (b: Box) => b.value * 2;
 
 function init() {
+  canvas.addEventListener("mousedown", handleMousedown);
+  canvas.addEventListener("mousemove", handleDrag);
+  canvas.addEventListener("mouseup", handleDrop);
+
+  // clear all boxes on press c
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "c") {
+      areas.clear();
+      draw();
+    } else if (event.key === "Escape") {
+      hideContextMenu();
+    }
+  });
+
   addBoxToArea({ x: 0, y: 0 });
   addOperatorToArea({ x: 50, y: 50 });
   addOperatorToArea({ x: 100, y: 100, value: 2 });
