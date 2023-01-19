@@ -449,12 +449,12 @@ function handleMousedown(event: MouseEvent): void {
 
   // existing area
   if (area) {
-    if (area.boxes.length > 0) {
-      // select last box
-      selectedEntity = area.boxes[area.boxes.length - 1] as Selection;
-    } else if (area.operatorBox) {
+    if (area.operatorBox) {
       // select operator
       selectedEntity = area.operatorBox as Selection;
+    } else if (area.boxes.length > 0) {
+      // select last box
+      selectedEntity = area.boxes[area.boxes.length - 1] as Selection;
     } else {
       return;
     }
@@ -465,7 +465,6 @@ function handleMousedown(event: MouseEvent): void {
       offset.x = mouse.x - selectedEntity.x - GRID_SIZE / 2;
       offset.y = mouse.y - selectedEntity.y - GRID_SIZE / 2;
     }
-    return;
   } else {
     // new area
     let newEntity;
