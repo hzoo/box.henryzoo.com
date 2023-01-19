@@ -7,7 +7,13 @@ type Coord = {
   y: number;
 };
 
+type BoxHistory = {
+  value: number;
+  operator: string;
+};
+
 type Box = Coord & {
+  history: BoxHistory[];
   value: number;
   updated?: boolean; // already operated on in loop
 };
@@ -242,6 +248,10 @@ function draw() {
               box.value = operatorValue / boxValue;
             }
           }
+          box.history.push({
+            operator: operatorBox.operator,
+            value: operatorBox.value,
+          });
         }
 
         // animate the box towards the end of the operator box
@@ -519,7 +529,17 @@ function createBox({
   y: number;
   value?: number;
 }): Box {
-  let newBox: Box = { x, y, value: value || 1 };
+  let newBox: Box = {
+    x,
+    y,
+    value: value || 1,
+    history: [
+      {
+        operator: "init",
+        value: value || 1,
+      },
+    ],
+  };
   newBox.x = Math.round(newBox.x / GRID_SIZE) * GRID_SIZE;
   newBox.y = Math.round(newBox.y / GRID_SIZE) * GRID_SIZE;
 
