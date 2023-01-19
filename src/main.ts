@@ -60,11 +60,21 @@ let pan: Coord = {
   x: 0,
   y: 0,
 };
+let fixedCanvasLog = "";
 let canvasLogs: string[] = [];
 let mouse: Coord = {
   x: 0,
   y: 0,
 };
+
+function followMouse() {
+  // should offset the +pan to be -pan,
+  // so need to minus pan twice
+  return {
+    x: mouse.x - 2 * pan.x,
+    y: mouse.y - 2 * pan.y,
+  };
+}
 
 function log(text: string) {
   // add new log to array
@@ -76,8 +86,8 @@ function log(text: string) {
   }
 }
 
-function log0(text: string) {
-  canvasLogs[0] = text;
+function logFixed(text: string) {
+  fixedCanvasLog = text;
 }
 
 function _isEmptyArea(area: Area): boolean {
@@ -310,24 +320,27 @@ function draw() {
 
   ctx.textAlign = "left";
   // draw logs
+  let { x, y } = followMouse();
   for (let i = 0; i < canvasLogs.length; i++) {
-    // make box around text
-    let x = mouse.x + 5;
-    let y = mouse.y - 15 + i * 20;
-    fillText(canvasLogs[i], x, y);
+    fillText(canvasLogs[i], x + 5, y - 30 - i * 20);
 
     let textWidth = ctx.measureText(canvasLogs[i]).width;
     strokeRect(
-      mouse.x,
-      mouse.y - canvasLogs.length * 20 - 10,
+      x,
+      y - (canvasLogs.length + 1) * 20 - 8,
       textWidth + 10,
-      canvasLogs.length * 20 + 5
+      (canvasLogs.length + 1) * 20 + 5
     );
+  }
+  // fixedCanvasLog;
+  if (fixedCanvasLog) {
+    fillText(fixedCanvasLog, x + 5, y - 12);
   }
   ctx.textAlign = "center";
 }
 
 // get mouse position
+// handle pan
 function getMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
   var rect = canvas.getBoundingClientRect();
   return {
@@ -556,12 +569,14 @@ function createOperator({
 
 function handleDrag(event: MouseEvent): void {
   mouse = getMousePos(canvas, event);
-  log0(`${mouse.x}, ${mouse.y}`);
+  logFixed(`${mouse.x - 2 * pan.x}, ${mouse.y - 2 * pan.y}`);
+  // log(`mouse: ${mouse.x}, ${mouse.y}`);
   if (!selectedEntity) {
     if (event.buttons === 1 && spacePressed) {
       canvas.style.cursor = "grabbing";
       pan.x += event.movementX;
       pan.y += event.movementY;
+      mouse = getMousePos(canvas, event);
       draw();
     }
   } else {
