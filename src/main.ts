@@ -60,6 +60,25 @@ let pan: Coord = {
   x: 0,
   y: 0,
 };
+let canvasLogs: string[] = [];
+let mouse: Coord = {
+  x: 0,
+  y: 0,
+};
+
+function log(text: string) {
+  // add new log to array
+  canvasLogs.unshift(text);
+
+  // remove oldest log if more than 3
+  if (canvasLogs.length > 3) {
+    canvasLogs.pop();
+  }
+}
+
+function log0(text: string) {
+  canvasLogs[0] = text;
+}
 
 function _isEmptyArea(area: Area): boolean {
   return area.boxes.length === 0 && area.operatorBox === undefined;
@@ -78,6 +97,12 @@ function getClosestGrid(x: number, y: number): { x: number; y: number } {
     x: Math.round((x - GRID_SIZE / 2) / GRID_SIZE) * GRID_SIZE,
     y: Math.round((y - GRID_SIZE / 2) / GRID_SIZE) * GRID_SIZE,
   };
+}
+
+function strokeRect(x: number, y: number, sizeX: number, sizeY: number) {
+  ctx.fillStyle = "black";
+  let { x: _x, y: _y } = applyPan(x, y);
+  ctx.strokeRect(_x, _y, sizeX, sizeY);
 }
 
 function drawBorder(x: number, y: number, size: number, dotted = false) {
@@ -282,14 +307,32 @@ function draw() {
       );
     }
   }
+
+  ctx.textAlign = "left";
+  // draw logs
+  for (let i = 0; i < canvasLogs.length; i++) {
+    // make box around text
+    let x = mouse.x + 5;
+    let y = mouse.y - 15 + i * 20;
+    fillText(canvasLogs[i], x, y);
+
+    let textWidth = ctx.measureText(canvasLogs[i]).width;
+    strokeRect(
+      mouse.x,
+      mouse.y - canvasLogs.length * 20 - 10,
+      textWidth + 10,
+      canvasLogs.length * 20 + 5
+    );
+  }
+  ctx.textAlign = "center";
 }
 
 // get mouse position
 function getMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
   var rect = canvas.getBoundingClientRect();
   return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
+    x: event.clientX - rect.left + pan.x,
+    y: event.clientY - rect.top + pan.y,
   };
 }
 
@@ -360,8 +403,7 @@ canvas.addEventListener("contextmenu", function (event) {
   event.preventDefault();
 
   // Get the mouse position
-  let { x, y } = getMousePos(canvas, event);
-  let area = getClosestArea(x, y);
+  let area = getClosestArea(mouse.x, mouse.y);
 
   // existing area
   if (area) {
@@ -382,8 +424,8 @@ canvas.addEventListener("contextmenu", function (event) {
     }
 
     contextMenu.style.display = "block";
-    contextMenu.style.left = `${x}px`;
-    contextMenu.style.top = `${y}px`;
+    contextMenu.style.left = `${mouse.x}px`;
+    contextMenu.style.top = `${mouse.y}px`;
   }
 });
 
@@ -400,8 +442,7 @@ function handleMousedown(event: MouseEvent): void {
     return;
   }
 
-  let { x, y } = getMousePos(canvas, event);
-  let area = getClosestArea(x, y);
+  let area = getClosestArea(mouse.x, mouse.y);
 
   // existing area
   if (area) {
@@ -418,8 +459,8 @@ function handleMousedown(event: MouseEvent): void {
     selectedEntity.startX = selectedEntity.x;
     selectedEntity.startY = selectedEntity.y;
     if (selectedEntity) {
-      offset.x = x - selectedEntity.x - GRID_SIZE / 2;
-      offset.y = y - selectedEntity.y - GRID_SIZE / 2;
+      offset.x = mouse.x - selectedEntity.x - GRID_SIZE / 2;
+      offset.y = mouse.y - selectedEntity.y - GRID_SIZE / 2;
     }
     return;
   } else {
@@ -428,13 +469,13 @@ function handleMousedown(event: MouseEvent): void {
 
     if (event.shiftKey) {
       newEntity = createOperator({
-        x: x - GRID_SIZE / 2,
-        y: y - GRID_SIZE / 2,
+        x: mouse.x - GRID_SIZE / 2,
+        y: mouse.y - GRID_SIZE / 2,
       });
     } else {
       newEntity = createBox({
-        x: x - GRID_SIZE / 2,
-        y: y - GRID_SIZE / 2,
+        x: mouse.x - GRID_SIZE / 2,
+        y: mouse.y - GRID_SIZE / 2,
       });
     }
 
@@ -514,6 +555,8 @@ function createOperator({
 }
 
 function handleDrag(event: MouseEvent): void {
+  mouse = getMousePos(canvas, event);
+  log0(`${mouse.x}, ${mouse.y}`);
   if (!selectedEntity) {
     if (event.buttons === 1 && spacePressed) {
       canvas.style.cursor = "grabbing";
@@ -521,18 +564,19 @@ function handleDrag(event: MouseEvent): void {
       pan.y += event.movementY;
       draw();
     }
-    return;
-  }
+  } else {
+    selectedEntity.x = mouse.x - offset.x - GRID_SIZE / 2;
+    selectedEntity.y = mouse.y - offset.y - GRID_SIZE / 2;
 
-  let { x, y } = getMousePos(canvas, event);
-  selectedEntity.x = x - offset.x - GRID_SIZE / 2;
-  selectedEntity.y = y - offset.y - GRID_SIZE / 2;
-
-  // set closest grid as "preview"
-  // only when creating new operators
-  // or when moving existing boxes
-  if ((selectedEntity.new && selectedEntity.operator) || !selectedEntity.new) {
-    previewCoordinate = getClosestGrid(x, y);
+    // set closest grid as "preview"
+    // only when creating new operators
+    // or when moving existing boxes
+    if (
+      (selectedEntity.new && selectedEntity.operator) ||
+      !selectedEntity.new
+    ) {
+      previewCoordinate = getClosestGrid(mouse.x, mouse.y);
+    }
   }
 
   draw();
