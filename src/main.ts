@@ -292,6 +292,26 @@ function draw() {
         box.updated = false;
       }
 
+      // change color based on the distance from the operator box
+      // where the closest distance is red and the furthest distance is black
+      if (operatorBox) {
+        let distance = Math.sqrt(
+          Math.pow(operatorBox.x - box.x, 2) +
+            Math.pow(operatorBox.y - box.y, 2)
+        );
+        let maxDistance = Math.sqrt(
+          Math.pow(operatorBox.outputOffsets[0].x, 2) +
+            Math.pow(operatorBox.outputOffsets[0].y, 2)
+        );
+        let colorValue = Math.max(1 - distance / maxDistance, 0.33);
+        let color = `rgba(255, 0, 255, ${colorValue})`;
+        ctx.strokeStyle = color;
+      } else {
+        ctx.strokeStyle = "black";
+      }
+      ctx.fillStyle = "white";
+      fillRect(box.x, box.y, GRID_SIZE);
+      ctx.fillStyle = "black";
       drawBorder(box.x, box.y, GRID_SIZE);
 
       // draw value
