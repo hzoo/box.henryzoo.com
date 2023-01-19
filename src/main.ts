@@ -67,15 +67,6 @@ let mouse: Coord = {
   y: 0,
 };
 
-function followMouse() {
-  // should offset the +pan to be -pan,
-  // so need to minus pan twice
-  return {
-    x: mouse.x - 2 * pan.x,
-    y: mouse.y - 2 * pan.y,
-  };
-}
-
 function log(text: string) {
   // add new log to array
   canvasLogs.unshift(text);
@@ -320,32 +311,31 @@ function draw() {
 
   ctx.textAlign = "left";
   // draw logs
-  let { x, y } = followMouse();
   for (let i = 0; i < canvasLogs.length; i++) {
-    fillText(canvasLogs[i], x + 5, y - 30 - i * 20);
+    fillText(canvasLogs[i], mouse.x + 5, mouse.y - 30 - i * 20);
 
     let textWidth = ctx.measureText(canvasLogs[i]).width;
     strokeRect(
-      x,
-      y - (canvasLogs.length + 1) * 20 - 8,
+      mouse.x,
+      mouse.y - (canvasLogs.length + 1) * 20 - 8,
       textWidth + 10,
       (canvasLogs.length + 1) * 20 + 5
     );
   }
   // fixedCanvasLog;
   if (fixedCanvasLog) {
-    fillText(fixedCanvasLog, x + 5, y - 12);
+    fillText(fixedCanvasLog, mouse.x + 5, mouse.y - 12);
   }
   ctx.textAlign = "center";
 }
 
 // get mouse position
-// handle pan
+// handle pan by substracting
 function getMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
   var rect = canvas.getBoundingClientRect();
   return {
-    x: event.clientX - rect.left + pan.x,
-    y: event.clientY - rect.top + pan.y,
+    x: event.clientX - rect.left - pan.x,
+    y: event.clientY - rect.top - pan.y,
   };
 }
 
@@ -569,14 +559,12 @@ function createOperator({
 
 function handleDrag(event: MouseEvent): void {
   mouse = getMousePos(canvas, event);
-  logFixed(`${mouse.x - 2 * pan.x}, ${mouse.y - 2 * pan.y}`);
-  // log(`mouse: ${mouse.x}, ${mouse.y}`);
+  logFixed(`${mouse.x}, ${mouse.y}`);
   if (!selectedEntity) {
     if (event.buttons === 1 && spacePressed) {
       canvas.style.cursor = "grabbing";
       pan.x += event.movementX;
       pan.y += event.movementY;
-      mouse = getMousePos(canvas, event);
       draw();
     }
   } else {
