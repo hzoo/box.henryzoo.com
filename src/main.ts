@@ -411,42 +411,70 @@ function getClosestArea(x: number, y: number): Area | undefined {
   return undefined;
 }
 
+function updateContextMenu(action: "existing" | "new") {
+  let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
+  if (action === "existing") {
+    contextMenu.innerHTML = `
+      <div class="context-menu-item" data-action="delete">Delete</div>
+    `;
+  } else if (action === "new") {
+    contextMenu.innerHTML = `
+      <div class="context-menu-item" data-action="create-value">Create Value</div>
+      <div class="context-menu-item" data-action="create-operator">Create Operator</div>
+    `;
+  }
+}
+
 function createContextMenu() {
   // menu needs to show up over the canvas correctly
   let contextMenu = document.createElement("div");
   contextMenu.classList.add("context-menu");
 
-  contextMenu.innerHTML = `
-      <div class="context-menu-item" data-action="delete">Delete</div>
-    `;
+  // contextMenu.innerHTML = `
+  //     <div class="context-menu-item" data-action="delete">Delete</div>
+  //   `;
   contextMenu.style.position = "absolute";
-  // menu should have a border and padding
-  contextMenu.style.padding = "10px";
   contextMenu.style.border = "1px solid black";
   contextMenu.style.backgroundColor = "white";
 
   // add event listener to menu items
   contextMenu.addEventListener("click", function (event: Event) {
     let action = (event.target as HTMLInputElement).getAttribute("data-action");
-    if (action === "delete") {
-      if (inspectedEntity) {
-        let area = getClosestArea(inspectedEntity.x, inspectedEntity.y);
-        if (area) {
-          if (inspectedEntity.operator) {
-            area.operatorBox = undefined;
-          } else {
-            area.boxes = area.boxes.filter(
-              (box) => box !== inspectedEntity
-            ) as Selection[];
-          }
 
-          let coord: MapCoordinates = `${inspectedEntity.x},${inspectedEntity.y}`;
-          if (isAreaEmpty(coord)) {
-            areas.delete(coord);
+    switch (action) {
+      case "delete":
+        if (inspectedEntity) {
+          let area = getClosestArea(inspectedEntity.x, inspectedEntity.y);
+          if (area) {
+            if (inspectedEntity.operator) {
+              area.operatorBox = undefined;
+            } else {
+              area.boxes = area.boxes.filter(
+                (box) => box !== inspectedEntity
+              ) as Selection[];
+            }
+
+            let coord: MapCoordinates = `${inspectedEntity.x},${inspectedEntity.y}`;
+            if (isAreaEmpty(coord)) {
+              areas.delete(coord);
+            }
           }
         }
-      }
+        break;
+      case "create-value":
+        addBoxToArea({
+          x: mouse.x,
+          y: mouse.y,
+        });
+        break;
+      case "create-operator":
+        addOperatorToArea({
+          x: mouse.x,
+          y: mouse.y,
+        });
+        break;
     }
+
     inspectedEntity = undefined;
     hideContextMenu();
   });
@@ -469,6 +497,16 @@ canvas.addEventListener("contextmenu", function (event) {
   // Get the mouse position
   let area = getClosestArea(mouse.x, mouse.y);
 
+  // create context menu
+  let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
+  if (!contextMenu) {
+    contextMenu = createContextMenu();
+  }
+
+  contextMenu.style.display = "block";
+  contextMenu.style.left = `${mouse.x}px`;
+  contextMenu.style.top = `${mouse.y}px`;
+
   // existing area
   if (area) {
     if (area.boxes.length > 0) {
@@ -479,17 +517,9 @@ canvas.addEventListener("contextmenu", function (event) {
       inspectedEntity = area.operatorBox as Selection;
     }
 
-    // create context menu
-    // check if menu already exists in dom with class context-menu
-    let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
-
-    if (!contextMenu) {
-      contextMenu = createContextMenu();
-    }
-
-    contextMenu.style.display = "block";
-    contextMenu.style.left = `${mouse.x}px`;
-    contextMenu.style.top = `${mouse.y}px`;
+    updateContextMenu("existing");
+  } else {
+    updateContextMenu("new");
   }
 });
 
@@ -531,30 +561,17 @@ function handleMousedown(event: MouseEvent): void {
     let newEntity;
 
     if (event.shiftKey) {
-      newEntity = createOperator({
+      newEntity = addOperatorToArea({
         x: mouse.x - GRID_SIZE / 2,
         y: mouse.y - GRID_SIZE / 2,
       });
     } else if (event.metaKey) {
-      newEntity = createBox({
+      newEntity = addBoxToArea({
         x: mouse.x - GRID_SIZE / 2,
         y: mouse.y - GRID_SIZE / 2,
       });
     } else {
       return;
-    }
-
-    let key: MapCoordinates = `${newEntity.x},${newEntity.y}`;
-    if (isOperator(newEntity)) {
-      areas.set(key, {
-        operatorBox: newEntity,
-        boxes: [],
-      });
-    } else {
-      areas.set(key, {
-        operatorBox: undefined,
-        boxes: [newEntity],
-      });
     }
 
     selectedEntity = {
@@ -828,14 +845,16 @@ function addBoxToArea({
   y: number;
   value?: number;
 }) {
+  let box = createBox({ x, y, value });
   let area = getClosestArea(x, y);
   if (area) {
-    area.boxes.push(createBox({ x, y, value }));
+    area.boxes.push(box);
   } else {
-    areas.set(`${x},${y}`, {
-      boxes: [createBox({ x, y, value })],
+    areas.set(`${box.x},${box.y}`, {
+      boxes: [box],
     });
   }
+  return box;
 }
 
 // add an operator to an area coordinate
@@ -851,15 +870,17 @@ function addOperatorToArea({
   value?: number;
   applyOperation?: (box: Box) => any;
 }) {
+  let operator = createOperator({ x, y, value, applyOperation });
   let area = getClosestArea(x, y);
   if (area) {
-    area.operatorBox = createOperator({ x, y, value, applyOperation });
+    area.operatorBox = operator;
   } else {
-    areas.set(`${x},${y}`, {
+    areas.set(`${operator.x},${operator.y}`, {
       boxes: [],
-      operatorBox: createOperator({ x, y, value, applyOperation }),
+      operatorBox: operator,
     });
   }
+  return operator;
 }
 
 let double = (b: Box) => b.value * 2;
