@@ -14,7 +14,7 @@ type Box = Coord & {
 
 type Operator = Box & {
   operator: string;
-  outputLocations: Coord[];
+  outputOffsets: Coord[]; // store offset from x,y
   applyOperation?: (box: Box) => any;
 };
 
@@ -246,8 +246,8 @@ function draw() {
 
         // animate the box towards the end of the operator box
         let end = {
-          x: operatorBox.outputLocations[0].x,
-          y: operatorBox.outputLocations[0].y,
+          x: operatorBox.x + operatorBox.outputOffsets[0].x,
+          y: operatorBox.y + operatorBox.outputOffsets[0].y,
         };
 
         box.x += (end.x - box.x) * 0.05;
@@ -548,10 +548,10 @@ function createOperator({
     newOperator.operator = "+";
   }
 
-  newOperator.outputLocations = [
+  newOperator.outputOffsets = [
     {
-      x: newOperator.x + GRID_SIZE,
-      y: newOperator.y,
+      x: GRID_SIZE,
+      y: 0,
     },
   ];
 
@@ -612,16 +612,18 @@ function handleDrop(event: MouseEvent): void {
 
     // if new area
     if (isAreaEmpty(key)) {
+      selectedEntity.x = x;
+      selectedEntity.y = y;
+
       if (isOperator(selectedEntity)) {
         areas.set(key, {
-          operatorBox: { ...selectedEntity, x, y },
+          operatorBox: selectedEntity,
           boxes: [],
         });
       } else {
-        selectedEntity;
         areas.set(key, {
           operatorBox: undefined,
-          boxes: [{ ...(selectedEntity as Box), x, y }],
+          boxes: [selectedEntity],
         });
       }
     } else {
@@ -661,7 +663,12 @@ function handleDrop(event: MouseEvent): void {
   } else if (selectedEntity.new) {
     if (oldArea?.operatorBox) {
       // set output location of operator to mouse area coord
-      oldArea.operatorBox.outputLocations = [previewCoordinate!];
+      oldArea.operatorBox.outputOffsets = [
+        {
+          x: previewCoordinate!.x - oldArea.operatorBox.x,
+          y: previewCoordinate!.y - oldArea.operatorBox.y,
+        },
+      ];
     }
   }
 
@@ -697,13 +704,10 @@ function animateBoxLines() {
 
       if (operatorBox) {
         //  draw lines to output locations
-        if (operatorBox.outputLocations) {
-          for (let outputLocation of operatorBox.outputLocations) {
+        if (operatorBox.outputOffsets) {
+          for (let offset of operatorBox.outputOffsets) {
             let dotCount = Math.floor(
-              Math.sqrt(
-                Math.pow(outputLocation.x - operatorBox.x, 2) +
-                  Math.pow(outputLocation.y - operatorBox.y, 2)
-              ) /
+              Math.sqrt(Math.pow(offset.x, 2) + Math.pow(offset.y, 2)) /
                 (dotSize + dotSpacing)
             );
 
@@ -712,8 +716,8 @@ function animateBoxLines() {
               y: operatorBox.y + GRID_SIZE / 2,
             };
             let end = {
-              x: outputLocation.x + GRID_SIZE / 2,
-              y: outputLocation.y + GRID_SIZE / 2,
+              x: operatorBox.x + offset.x + GRID_SIZE / 2,
+              y: operatorBox.y + offset.y + GRID_SIZE / 2,
             };
 
             ctx.setLineDash([dotSize, dotSpacing]);
