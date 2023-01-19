@@ -475,11 +475,13 @@ function handleMousedown(event: MouseEvent): void {
         x: mouse.x - GRID_SIZE / 2,
         y: mouse.y - GRID_SIZE / 2,
       });
-    } else {
+    } else if (event.metaKey) {
       newEntity = createBox({
         x: mouse.x - GRID_SIZE / 2,
         y: mouse.y - GRID_SIZE / 2,
       });
+    } else {
+      return;
     }
 
     let key: MapCoordinates = `${newEntity.x},${newEntity.y}`;
@@ -785,12 +787,8 @@ function init() {
   canvas.addEventListener("mousemove", handleDrag);
   canvas.addEventListener("mouseup", handleDrop);
 
-  // clear all boxes on press c
   document.addEventListener("keydown", function (event) {
-    if (event.key === "c") {
-      areas.clear();
-      draw();
-    } else if (event.key === "Escape") {
+    if (event.key === "Escape") {
       hideContextMenu();
     } else if (event.key === " ") {
       spacePressed = true;

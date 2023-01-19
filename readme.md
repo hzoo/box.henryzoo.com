@@ -1,4 +1,10 @@
-# notes
+##
+
+- meta + click = value
+- shift + click + drag = operator
+- space + drag = pan
+
+## notes
 
 - values are shown as boxes?
 - operators are just template boxes with lines? input/output that carries boxes around?
