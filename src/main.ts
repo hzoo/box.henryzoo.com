@@ -16,6 +16,7 @@ type Box = Coord & {
   history: BoxHistory[];
   value: number;
   updated?: boolean; // already operated on in loop
+  end?: Coord; // where to animate towards
 };
 
 type Operator = Box & {
@@ -229,9 +230,42 @@ function draw() {
       if (operatorBox && !box.updated) {
         // change box value
         if (box.x == operatorBox.x && box.y == operatorBox.y) {
+          // animate the box towards the end of the operator box
+          box.end = {
+            x: operatorBox.x + operatorBox.outputOffsets[0].x,
+            y: operatorBox.y + operatorBox.outputOffsets[0].y,
+          };
+
           // if applyOperation is true, apply the operation to the box
           if (operatorBox.applyOperation) {
-            box.value = operatorBox.applyOperation(box);
+            let result = operatorBox.applyOperation(box);
+            if (typeof result === "number") {
+              box.value = result;
+            } else {
+              if (Array.isArray(result)) {
+                box.value = result[0];
+
+                // create a new box for each value in the array
+                for (let i = 1; i < result.length; i++) {
+                  let newBox = {
+                    x: box.x + 0.1,
+                    y: box.y,
+                    end: {
+                      x: operatorBox.x + operatorBox.outputOffsets[i].x,
+                      y: operatorBox.y + operatorBox.outputOffsets[i].y,
+                    },
+                    value: result[i],
+                    history: [
+                      {
+                        operator: operatorBox.operator,
+                        value: operatorBox.value,
+                      },
+                    ],
+                  };
+                  boxes.push(newBox);
+                }
+              }
+            }
           } else {
             let operator = operatorBox.operator;
 
@@ -254,11 +288,7 @@ function draw() {
           });
         }
 
-        // animate the box towards the end of the operator box
-        let end = {
-          x: operatorBox.x + operatorBox.outputOffsets[0].x,
-          y: operatorBox.y + operatorBox.outputOffsets[0].y,
-        };
+        let end = box.end!;
 
         box.x += (end.x - box.x) * 0.05;
         box.y += (end.y - box.y) * 0.05;
@@ -320,7 +350,8 @@ function draw() {
     }
 
     // draw number of boxes in area in a circle
-    if (boxes.length > 1) {
+    // no operator box
+    if (!area.operatorBox && boxes.length > 1) {
       ctx.beginPath();
       ctx.arc(
         boxes[0].x + GRID_SIZE + 7 + pan.x,
@@ -579,21 +610,29 @@ function createOperator({
 }): Operator {
   let newOperator: Operator = createBox({ x, y }) as Operator;
   newOperator.value = value || 1;
-
-  if (applyOperation) {
-    newOperator.applyOperation = applyOperation;
-    newOperator.operator = applyOperation.name;
-    // newOperator.operator = applyOperation.toString();
-  } else {
-    newOperator.operator = "+";
-  }
-
   newOperator.outputOffsets = [
     {
       x: GRID_SIZE,
       y: 0,
     },
   ];
+
+  if (applyOperation) {
+    newOperator.applyOperation = applyOperation;
+    let res = applyOperation({ x: 0, y: 0, value: 1, history: [] });
+    if (Array.isArray(res)) {
+      // create multiple outputOffets
+      for (let i = 1; i < res.length; i++) {
+        newOperator.outputOffsets.push({
+          x: GRID_SIZE,
+          y: i * GRID_SIZE,
+        });
+      }
+    }
+    newOperator.operator = applyOperation.name;
+  } else {
+    newOperator.operator = "+";
+  }
 
   return newOperator;
 }
@@ -824,6 +863,7 @@ function addOperatorToArea({
 }
 
 let double = (b: Box) => b.value * 2;
+let clone = (b: Box) => [b.value, b.value] as [number, number];
 
 function init() {
   canvas.addEventListener("mousedown", handleMousedown);
@@ -855,7 +895,13 @@ function init() {
     y: 200,
     applyOperation: double,
   });
-  addBoxToArea({ x: 0, y: 200, value: 10000 });
+  addOperatorToArea({
+    x: 250,
+    y: 200,
+    applyOperation: clone,
+  });
+  addBoxToArea({ x: 200, y: 200, value: 1 });
+  addBoxToArea({ x: 0, y: 200, value: 1 });
   addBoxToArea({ x: 50, y: 200, value: 100 });
   addBoxToArea({ x: 100, y: 200, value: 1000 });
 
