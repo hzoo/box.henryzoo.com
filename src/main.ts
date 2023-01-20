@@ -239,10 +239,16 @@ function draw() {
             box.value = result;
           } else {
             if (Array.isArray(result)) {
-              box.value = result[0];
+              if (result[0] === undefined) {
+                area.boxes = area.boxes.filter((b) => b !== box);
+              } else {
+                box.value = result[0];
+              }
 
               // create a new box for each value in the array
               for (let i = 1; i < result.length; i++) {
+                if (result[i] === undefined) continue;
+
                 let newBox = {
                   x: box.x + 0.1,
                   y: box.y,
@@ -258,8 +264,10 @@ function draw() {
                     },
                   ],
                 };
-                boxes.push(newBox);
+                area.boxes.push(newBox);
               }
+            } else {
+              box.value = result;
             }
           }
           box.history.push({
@@ -1009,25 +1017,33 @@ function init() {
     }
   });
 
-  addBoxToArea({ x: 0, y: 0 });
-  addOperatorToArea({ x: 50, y: 50, applyOperation: (b) => b++, name: "+1" });
+  addBoxToArea({ x: 200, y: 100 });
   addOperatorToArea({
-    x: 100,
+    x: 200,
     y: 100,
-    applyOperation: (b) => b + 2,
-    name: "+2",
-  });
-  addOperatorToArea({
-    x: 150,
-    y: 150,
-    applyOperation: (b) => b + 4,
-    name: "+4",
+    applyOperation: (b) => b + 1,
+    name: "+1",
   });
   addOperatorToArea({
     x: 200,
     y: 200,
     applyOperation: double,
   });
+  addOperatorToArea({
+    x: 250,
+    y: 0,
+    name: "even?",
+    applyOperation: (b) => (b % 2 === 0 ? [b] : [undefined, b]),
+  });
+  addBoxToArea({ x: 250, y: 0, value: 2 });
+  addBoxToArea({ x: 250, y: 0, value: 1 });
+  addOperatorToArea({
+    x: 250,
+    y: 100,
+    name: "isEven",
+    applyOperation: (b) => b % 2 === 0,
+  });
+  addBoxToArea({ x: 250, y: 100, value: 2 });
   addOperatorToArea({
     x: 250,
     y: 200,
