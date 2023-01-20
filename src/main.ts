@@ -504,30 +504,50 @@ function createContextMenu() {
           document.body.appendChild(input);
           input.focus();
 
-          input.addEventListener("keydown", function (event: KeyboardEvent) {
-            if (event.key === "Enter" && !event.shiftKey) {
-              let fn = new Function(
+          function handleChange(event: Event) {
+            let fn;
+            try {
+              fn = new Function(
                 `return ${(event.target as HTMLInputElement).value}`
               );
-              try {
-                let opFn = fn() as (b: Box) => any;
-                inspectedEntity.applyOperation = opFn;
-                log(`set ${inspectedEntity.operator} to ${opFn}`);
-              } catch (e) {}
-              input.remove();
+              let opFn = fn();
+              inspectedEntity.applyOperation = opFn;
+              let res = opFn(1);
+              if (Array.isArray(res)) {
+                if (res.length > inspectedEntity.outputOffsets.length) {
+                  for (
+                    let i = inspectedEntity.outputOffsets.length;
+                    i < res.length;
+                    i++
+                  ) {
+                    inspectedEntity.outputOffsets.push({
+                      x: GRID_SIZE,
+                      y: i * GRID_SIZE,
+                    });
+                  }
+                } else if (res.length < inspectedEntity.outputOffsets.length) {
+                  inspectedEntity.outputOffsets =
+                    inspectedEntity.outputOffsets.slice(0, res.length);
+                }
+              } else {
+                inspectedEntity.outputOffsets =
+                  inspectedEntity.outputOffsets.slice(0, 1);
+              }
+              log(`set ${inspectedEntity.operator} to ${opFn}`);
+            } catch (e) {
+              log(`error setting ${inspectedEntity.operator} to ${fn}`);
+            }
+            input.remove();
+          }
+
+          input.addEventListener("keydown", function (event: KeyboardEvent) {
+            if (event.key === "Enter" && !event.shiftKey) {
+              handleChange(event);
             }
           });
 
           input.addEventListener("blur", function (event: Event) {
-            let fn = new Function(
-              `return ${(event.target as HTMLInputElement).value}`
-            );
-            try {
-              let opFn = fn() as (b: Box) => any;
-              inspectedEntity.applyOperation = opFn;
-              log(`set ${inspectedEntity.operator} to ${opFn}`);
-            } catch (e) {}
-            input.remove();
+            handleChange(event);
           });
         } else {
           createInput("value");
