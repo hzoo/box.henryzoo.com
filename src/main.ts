@@ -505,11 +505,9 @@ function createContextMenu() {
           input.focus();
 
           function handleChange(event: Event) {
-            let fn;
+            let inputValue = (event.target as HTMLInputElement).value;
             try {
-              fn = new Function(
-                `return ${(event.target as HTMLInputElement).value}`
-              );
+              let fn = new Function(`return ${inputValue}`);
               let opFn = fn();
               inspectedEntity.applyOperation = opFn;
               let res = opFn(1);
@@ -535,7 +533,7 @@ function createContextMenu() {
               }
               log(`set ${inspectedEntity.operator} to ${opFn}`);
             } catch (e) {
-              log(`error setting ${inspectedEntity.operator} to ${fn}`);
+              log(`error setting ${inspectedEntity.operator} to ${inputValue}`);
             }
             input.remove();
           }
