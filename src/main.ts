@@ -415,6 +415,7 @@ function updateContextMenu(action: "existing" | "new") {
   let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
   if (action === "existing") {
     contextMenu.innerHTML = `
+      <div class="context-menu-item" data-action="edit">Edit</div>
       <div class="context-menu-item" data-action="delete">Delete</div>
     `;
   } else if (action === "new") {
@@ -451,6 +452,42 @@ function createContextMenu() {
     let contextMenuCoord = getCoordFromHtmlDivElement(contextMenu);
 
     switch (action) {
+      case "edit":
+        if (inspectedEntity && inspectedEntity.operator == null) {
+          // create input element
+          let input = document.createElement("input");
+          input.type = "number";
+          input.value = inspectedEntity.value.toString();
+          input.style.position = "absolute";
+          input.style.left = `${inspectedEntity.x}px`;
+          input.style.top = `${inspectedEntity.y}px`;
+          input.style.width = `${GRID_SIZE}px`;
+          input.style.height = `${GRID_SIZE}px`;
+
+          document.body.appendChild(input);
+          input.focus();
+
+          input.addEventListener("keydown", function (event: KeyboardEvent) {
+            if (event.key === "Enter") {
+              if (inspectedEntity) {
+                inspectedEntity.value = parseInt(
+                  (event.target as HTMLInputElement).value
+                );
+                input.remove();
+              }
+            }
+          });
+
+          input.addEventListener("blur", function (event: Event) {
+            if (inspectedEntity) {
+              inspectedEntity.value = parseInt(
+                (event.target as HTMLInputElement).value
+              );
+              input.remove();
+            }
+          });
+        }
+        break;
       case "delete":
         if (inspectedEntity) {
           let area = getClosestArea(inspectedEntity.x, inspectedEntity.y);
@@ -478,7 +515,6 @@ function createContextMenu() {
         break;
     }
 
-    inspectedEntity = undefined;
     hideContextMenu();
   });
 
