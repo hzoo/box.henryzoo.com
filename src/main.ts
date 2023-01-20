@@ -692,7 +692,7 @@ function handleMousedown(event: MouseEvent): void {
     offset.x = 0;
     offset.y = 0;
 
-    draw();
+    // draw();
   }
 }
 
@@ -774,7 +774,7 @@ function handleDrag(event: MouseEvent): void {
       canvas.style.cursor = "grabbing";
       pan.x += event.movementX;
       pan.y += event.movementY;
-      draw();
+      // draw();
     }
   } else {
     selectedEntity.x = mouse.x - offset.x - GRID_SIZE / 2;
@@ -789,9 +789,8 @@ function handleDrag(event: MouseEvent): void {
     ) {
       previewCoordinate = getClosestGrid(mouse.x, mouse.y);
     }
+    // draw();
   }
-
-  draw();
 }
 
 function handleDrop(event: MouseEvent): void {
