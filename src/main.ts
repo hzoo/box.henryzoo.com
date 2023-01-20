@@ -20,9 +20,9 @@ type Box = Coord & {
 };
 
 type Operator = Box & {
-  operator: string;
+  operator: string; // name
   outputOffsets: Coord[]; // store offset from x,y
-  applyOperation?: (box: Box) => any;
+  applyOperation: (b: any) => any;
 };
 
 type Area = {
@@ -213,20 +213,11 @@ function draw() {
     if (operatorBox) {
       drawBorder(operatorBox.x, operatorBox.y, GRID_SIZE, true);
 
-      // draw operator
-      if (operatorBox.applyOperation) {
-        fillText(
-          `${operatorBox.applyOperation.name}`,
-          operatorBox.x + GRID_SIZE / 2,
-          operatorBox.y + GRID_SIZE + 20
-        );
-      } else {
-        fillText(
-          `${operatorBox.operator}${operatorBox.value}`,
-          operatorBox.x + GRID_SIZE / 2,
-          operatorBox.y + GRID_SIZE + 20
-        );
-      }
+      fillText(
+        `${operatorBox.operator}`,
+        operatorBox.x + GRID_SIZE / 2,
+        operatorBox.y + GRID_SIZE + 20
+      );
 
       // @dev draw line out of box moved to animateLine()
     }
@@ -243,50 +234,32 @@ function draw() {
             y: operatorBox.y + operatorBox.outputOffsets[0].y,
           };
 
-          // if applyOperation is true, apply the operation to the box
-          if (operatorBox.applyOperation) {
-            let result = operatorBox.applyOperation(box);
-            if (typeof result === "number") {
-              box.value = result;
-            } else {
-              if (Array.isArray(result)) {
-                box.value = result[0];
-
-                // create a new box for each value in the array
-                for (let i = 1; i < result.length; i++) {
-                  let newBox = {
-                    x: box.x + 0.1,
-                    y: box.y,
-                    end: {
-                      x: operatorBox.x + operatorBox.outputOffsets[i].x,
-                      y: operatorBox.y + operatorBox.outputOffsets[i].y,
-                    },
-                    value: result[i],
-                    history: [
-                      {
-                        operator: operatorBox.operator,
-                        value: operatorBox.value,
-                      },
-                    ],
-                  };
-                  boxes.push(newBox);
-                }
-              }
-            }
+          let result = operatorBox.applyOperation(box.value);
+          if (typeof result === "number") {
+            box.value = result;
           } else {
-            let operator = operatorBox.operator;
+            if (Array.isArray(result)) {
+              box.value = result[0];
 
-            let operatorValue = operatorBox.value;
-            let boxValue = box.value;
-
-            if (operator === "+") {
-              box.value = operatorValue + boxValue;
-            } else if (operator === "-") {
-              box.value = operatorValue - boxValue;
-            } else if (operator === "*") {
-              box.value = operatorValue * boxValue;
-            } else if (operator === "/") {
-              box.value = operatorValue / boxValue;
+              // create a new box for each value in the array
+              for (let i = 1; i < result.length; i++) {
+                let newBox = {
+                  x: box.x + 0.1,
+                  y: box.y,
+                  end: {
+                    x: operatorBox.x + operatorBox.outputOffsets[i].x,
+                    y: operatorBox.y + operatorBox.outputOffsets[i].y,
+                  },
+                  value: result[i],
+                  history: [
+                    {
+                      operator: operatorBox.operator,
+                      value: operatorBox.value,
+                    },
+                  ],
+                };
+                boxes.push(newBox);
+              }
             }
           }
           box.history.push({
@@ -527,7 +500,7 @@ function createContextMenu() {
           input.style.top = `${inspectedEntity.y}px`;
           input.style.width = `${GRID_SIZE * 3}px`;
           input.style.height = `${GRID_SIZE}px`;
-          input.value = inspectedEntity?.applyOperation?.toString() || "";
+          input.value = inspectedEntity.applyOperation.toString();
           document.body.appendChild(input);
           input.focus();
 
@@ -538,9 +511,6 @@ function createContextMenu() {
               );
               try {
                 let opFn = fn() as (b: Box) => any;
-                Object.defineProperty(opFn, "name", {
-                  value: "custom",
-                });
                 inspectedEntity.applyOperation = opFn;
                 log(`set ${inspectedEntity.operator} to ${opFn}`);
               } catch (e) {}
@@ -554,9 +524,6 @@ function createContextMenu() {
             );
             try {
               let opFn = fn() as (b: Box) => any;
-              Object.defineProperty(opFn, "name", {
-                value: "custom",
-              });
               inspectedEntity.applyOperation = opFn;
               log(`set ${inspectedEntity.operator} to ${opFn}`);
             } catch (e) {}
@@ -732,16 +699,16 @@ function createBox({
 function createOperator({
   x,
   y,
-  value,
+  name,
   applyOperation,
 }: {
   x: number;
   y: number;
-  value?: number;
-  applyOperation?: (box: Box) => any;
+  name?: string;
+  applyOperation?: (b: any) => any;
 }): Operator {
   let newOperator: Operator = createBox({ x, y }) as Operator;
-  newOperator.value = value || 1;
+  newOperator.value = 1;
   newOperator.outputOffsets = [
     {
       x: GRID_SIZE,
@@ -751,7 +718,7 @@ function createOperator({
 
   if (applyOperation) {
     newOperator.applyOperation = applyOperation;
-    let res = applyOperation({ x: 0, y: 0, value: 1, history: [] });
+    let res = applyOperation(1);
     if (Array.isArray(res)) {
       // create multiple outputOffets
       for (let i = 1; i < res.length; i++) {
@@ -761,9 +728,11 @@ function createOperator({
         });
       }
     }
-    newOperator.operator = applyOperation.name;
+    newOperator.operator = name || applyOperation.name;
   } else {
-    newOperator.operator = "+";
+    newOperator.applyOperation = (a) => a;
+    Object.defineProperty(newOperator.applyOperation, "name", { value: "id" });
+    newOperator.operator = "id";
   }
 
   return newOperator;
@@ -977,15 +946,15 @@ function addBoxToArea({
 function addOperatorToArea({
   x,
   y,
-  value,
+  name,
   applyOperation,
 }: {
   x: number;
   y: number;
-  value?: number;
-  applyOperation?: (box: Box) => any;
+  name?: string;
+  applyOperation?: (b: any) => any;
 }) {
-  let operator = createOperator({ x, y, value, applyOperation });
+  let operator = createOperator({ x, y, name, applyOperation });
   let area = getClosestArea(x, y);
   if (area) {
     area.operatorBox = operator;
@@ -998,8 +967,8 @@ function addOperatorToArea({
   return operator;
 }
 
-let double = (b: Box) => b.value * 2;
-let clone = (b: Box) => [b.value, b.value] as [number, number];
+let double = (b: number) => b * 2;
+let clone = (b: number) => [b, b] as [number, number];
 
 function init() {
   canvas.addEventListener("mousedown", handleMousedown);
@@ -1023,9 +992,19 @@ function init() {
   });
 
   addBoxToArea({ x: 0, y: 0 });
-  addOperatorToArea({ x: 50, y: 50 });
-  addOperatorToArea({ x: 100, y: 100, value: 2 });
-  addOperatorToArea({ x: 150, y: 150, value: 4 });
+  addOperatorToArea({ x: 50, y: 50, applyOperation: (b) => b++, name: "+1" });
+  addOperatorToArea({
+    x: 100,
+    y: 100,
+    applyOperation: (b) => b + 2,
+    name: "+2",
+  });
+  addOperatorToArea({
+    x: 150,
+    y: 150,
+    applyOperation: (b) => b + 4,
+    name: "+4",
+  });
   addOperatorToArea({
     x: 200,
     y: 200,
