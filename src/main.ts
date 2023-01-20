@@ -727,15 +727,17 @@ function createOperator({
   y,
   name,
   applyOperation,
+  outputOffsets,
 }: {
   x: number;
   y: number;
   name?: string;
   applyOperation?: (b: any) => any;
+  outputOffsets?: { x: number; y: number }[];
 }): Operator {
   let newOperator: Operator = createBox({ x, y }) as Operator;
   newOperator.value = 1;
-  newOperator.outputOffsets = [
+  newOperator.outputOffsets = outputOffsets || [
     {
       x: GRID_SIZE,
       y: 0,
@@ -974,13 +976,15 @@ function addOperatorToArea({
   y,
   name,
   applyOperation,
+  outputOffsets,
 }: {
   x: number;
   y: number;
   name?: string;
   applyOperation?: (b: any) => any;
+  outputOffsets?: { x: number; y: number }[];
 }) {
-  let operator = createOperator({ x, y, name, applyOperation });
+  let operator = createOperator({ x, y, name, applyOperation, outputOffsets });
   let area = getClosestArea(x, y);
   if (area) {
     area.operatorBox = operator;
@@ -1053,6 +1057,34 @@ function init() {
   addBoxToArea({ x: 0, y: 200, value: 1 });
   addBoxToArea({ x: 50, y: 200, value: 100 });
   addBoxToArea({ x: 100, y: 200, value: 1000 });
+
+  addOperatorToArea({
+    x: 50,
+    y: 300,
+    name: "id",
+    applyOperation: (b) => b,
+  });
+  addBoxToArea({ x: 50, y: 300, value: 16 });
+  addOperatorToArea({
+    x: 100,
+    y: 300,
+    name: ">>2",
+    applyOperation: (b) => b >> 2,
+  });
+  addOperatorToArea({
+    x: 150,
+    y: 300,
+    name: "id",
+    applyOperation: (b) => b,
+    outputOffsets: [{ x: -50, y: 100 }],
+  });
+  addOperatorToArea({
+    x: 100,
+    y: 400,
+    name: "<<2",
+    applyOperation: (b) => b << 2,
+    outputOffsets: [{ x: -50, y: -100 }],
+  });
 
   animateBoxLines();
   requestAnimationFrame(draw);
