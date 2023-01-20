@@ -425,6 +425,14 @@ function updateContextMenu(action: "existing" | "new") {
   }
 }
 
+function getCoordFromHtmlDivElement(element: HTMLDivElement): Coord {
+  let { x, y } = getClosestGrid(
+    parseInt(element.style.left),
+    parseInt(element.style.top)
+  );
+  return { x, y };
+}
+
 function createContextMenu() {
   // menu needs to show up over the canvas correctly
   let contextMenu = document.createElement("div");
@@ -440,6 +448,7 @@ function createContextMenu() {
   // add event listener to menu items
   contextMenu.addEventListener("click", function (event: Event) {
     let action = (event.target as HTMLInputElement).getAttribute("data-action");
+    let contextMenuCoord = getCoordFromHtmlDivElement(contextMenu);
 
     switch (action) {
       case "delete":
@@ -462,16 +471,10 @@ function createContextMenu() {
         }
         break;
       case "create-value":
-        addBoxToArea({
-          x: mouse.x,
-          y: mouse.y,
-        });
+        addBoxToArea(contextMenuCoord);
         break;
       case "create-operator":
-        addOperatorToArea({
-          x: mouse.x,
-          y: mouse.y,
-        });
+        addOperatorToArea(contextMenuCoord);
         break;
     }
 
