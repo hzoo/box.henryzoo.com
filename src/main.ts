@@ -1086,6 +1086,22 @@ function init() {
     outputOffsets: [{ x: -50, y: -100 }],
   });
 
+  addBoxToArea({ x: 250, y: 300, value: 16 });
+  addOperatorToArea({
+    x: 250,
+    y: 300,
+    name: ">>2",
+    applyOperation: (b) => b >> 2,
+    outputOffsets: [{ x: 50, y: 50 }],
+  });
+  addOperatorToArea({
+    x: 300,
+    y: 350,
+    name: "<<2",
+    applyOperation: (b) => b << 2,
+    outputOffsets: [{ x: -50, y: -50 }],
+  });
+
   animateBoxLines();
   requestAnimationFrame(draw);
 }
