@@ -213,11 +213,14 @@ function draw() {
     if (operatorBox) {
       drawBorder(operatorBox.x, operatorBox.y, GRID_SIZE, true);
 
-      fillText(
-        `${operatorBox.operator}`,
-        operatorBox.x + GRID_SIZE / 2,
-        operatorBox.y + GRID_SIZE + 20
-      );
+      // move y position up or down depending on if there is an operator above it
+      let y = operatorBox.y - 10;
+      let above = getClosestArea(operatorBox.x, operatorBox.y - GRID_SIZE);
+      if (above && above.operatorBox) {
+        y = operatorBox.y + GRID_SIZE + 12;
+      }
+
+      fillText(`${operatorBox.operator}`, operatorBox.x + GRID_SIZE / 2, y);
 
       // @dev draw line out of box moved to animateLine()
     }
@@ -1032,14 +1035,16 @@ function init() {
     y: 200,
     applyOperation: double,
   });
+
+  addBoxToArea({ x: 50, y: 50, value: 2 });
+  addBoxToArea({ x: 50, y: 50, value: 1 });
   addOperatorToArea({
-    x: 250,
-    y: 0,
+    x: 50,
+    y: 50,
     name: "even?",
     applyOperation: (b) => (b % 2 === 0 ? [b] : [undefined, b]),
   });
-  addBoxToArea({ x: 250, y: 0, value: 2 });
-  addBoxToArea({ x: 250, y: 0, value: 1 });
+
   addOperatorToArea({
     x: 250,
     y: 100,
@@ -1101,8 +1106,77 @@ function init() {
     outputOffsets: [{ x: -50, y: -50 }],
   });
 
+  createLineOfBoxes({
+    x: 50,
+    y: 500,
+    count: 5,
+    value: 4,
+  });
+  createLineOfOperators({
+    x: 50,
+    y: 500,
+    name: ">>2",
+    applyOperation: (b) => b >> 2,
+    count: 5,
+    outputOffsets: [{ x: 0, y: 50 }],
+  });
+  createLineOfOperators({
+    x: 50,
+    y: 550,
+    name: "<<2",
+    applyOperation: (b) => b << 2,
+    count: 5,
+    outputOffsets: [{ x: 0, y: -50 }],
+  });
+
   animateBoxLines();
   requestAnimationFrame(draw);
+}
+
+// function to create multiple operators in a line
+// using addOperatorToArea
+function createLineOfOperators({
+  x,
+  y,
+  count,
+  name,
+  applyOperation,
+  outputOffsets,
+}: {
+  x: number;
+  y: number;
+  count: number;
+  name?: string;
+  applyOperation?: (b: any) => any;
+  outputOffsets?: { x: number; y: number }[];
+}) {
+  for (let i = 0; i < count; i++) {
+    addOperatorToArea({
+      x: x + i * GRID_SIZE,
+      y,
+      name,
+      applyOperation,
+      outputOffsets,
+    });
+  }
+}
+
+// function to create multiple boxes in a line
+// using addBoxToArea
+function createLineOfBoxes({
+  x,
+  y,
+  count,
+  value,
+}: {
+  x: number;
+  y: number;
+  count: number;
+  value?: number;
+}) {
+  for (let i = 0; i < count; i++) {
+    addBoxToArea({ x: x + i * GRID_SIZE, y, value });
+  }
 }
 
 init();
