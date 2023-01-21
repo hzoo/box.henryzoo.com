@@ -13,6 +13,7 @@ type BoxHistory = {
 };
 
 type Box = Coord & {
+  name: string;
   history: BoxHistory[];
   value: number;
   updated?: boolean; // already operated on in loop
@@ -20,7 +21,6 @@ type Box = Coord & {
 };
 
 type Operator = Box & {
-  operator: string; // name
   outputOffsets: Coord[]; // store offset from x,y
   applyOperation: (b: any) => any;
 };
@@ -37,7 +37,7 @@ type Selection = Operator & {
 };
 
 function isOperator(entity: Box | Operator): entity is Operator {
-  return (entity as Operator).operator !== undefined;
+  return (entity as Operator).applyOperation !== undefined;
 }
 
 const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
@@ -58,10 +58,11 @@ let selectedEntity: Selection | undefined = undefined;
 let inspectedEntity: Operator = {
   x: 0,
   y: 0,
-  operator: "",
+  name: "",
   outputOffsets: [],
   history: [],
   value: 0,
+  applyOperation: (b) => b,
 };
 // where the preview box would be placed if dropped on mouseup, snapped to grid
 let previewCoordinate: Coord | undefined = undefined;
@@ -190,7 +191,7 @@ function draw() {
   if (
     selectedEntity &&
     selectedEntity.new &&
-    selectedEntity?.operator &&
+    isOperator(selectedEntity) &&
     previewCoordinate
   ) {
     drawLine(
@@ -220,7 +221,7 @@ function draw() {
         y = operatorBox.y + GRID_SIZE + 12;
       }
 
-      fillText(`${operatorBox.operator}`, operatorBox.x + GRID_SIZE / 2, y);
+      fillText(`${operatorBox.name}`, operatorBox.x + GRID_SIZE / 2, y);
 
       // @dev draw line out of box moved to animateLine()
     }
@@ -253,6 +254,7 @@ function draw() {
                 if (result[i] === undefined) continue;
 
                 let newBox = {
+                  name: "",
                   x: box.x + 0.1,
                   y: box.y,
                   end: {
@@ -262,7 +264,7 @@ function draw() {
                   value: result[i],
                   history: [
                     {
-                      operator: operatorBox.operator,
+                      operator: operatorBox.name,
                       value: operatorBox.value,
                     },
                   ],
@@ -274,7 +276,7 @@ function draw() {
             }
           }
           box.history.push({
-            operator: operatorBox.operator,
+            operator: operatorBox.name,
             value: operatorBox.value,
           });
         }
@@ -338,6 +340,11 @@ function draw() {
       // draw value
       let text = box.value.toString();
       fillText(text, box.x + GRID_SIZE / 2, box.y + GRID_SIZE / 2);
+
+      // draw name if there is one
+      if (box.name) {
+        fillText(box.name, box.x + GRID_SIZE / 2, box.y - 10);
+      }
     }
 
     // draw number of boxes in area in a circle
@@ -409,6 +416,7 @@ function updateContextMenu(
   if (action === "existing-box") {
     contextMenu.innerHTML = `
       <div class="context-menu-item" data-action="edit">Edit</div>
+      <div class="context-menu-item" data-action="edit-name">Edit Name</div>
       <div class="context-menu-item" data-action="delete">Delete</div>
     `;
   } else if (action === "existing-operator") {
@@ -433,11 +441,8 @@ function getCoordFromHtmlDivElement(element: HTMLDivElement): Coord {
   return { x, y };
 }
 
-function createInput(property: "operator" | "value") {
+function createInput(property: "name" | "value") {
   let prop = inspectedEntity[property];
-  if (!prop) {
-    return;
-  }
 
   // create input element
   let input = document.createElement("input");
@@ -500,10 +505,10 @@ function createContextMenu() {
 
     switch (action) {
       case "edit-name":
-        createInput("operator");
+        createInput("name");
         break;
       case "edit":
-        if (inspectedEntity.operator) {
+        if (isOperator(inspectedEntity)) {
           // create input element
           let input = document.createElement("textarea");
           input.style.position = "absolute";
@@ -542,9 +547,9 @@ function createContextMenu() {
                 inspectedEntity.outputOffsets =
                   inspectedEntity.outputOffsets.slice(0, 1);
               }
-              log(`set ${inspectedEntity.operator} to ${opFn}`);
+              log(`set ${inspectedEntity.name} to ${opFn}`);
             } catch (e) {
-              log(`error setting ${inspectedEntity.operator} to ${inputValue}`);
+              log(`error setting ${inspectedEntity.name} to ${inputValue}`);
             }
             input.remove();
           }
@@ -565,7 +570,7 @@ function createContextMenu() {
       case "delete":
         let area = getClosestArea(inspectedEntity.x, inspectedEntity.y);
         if (area) {
-          if (inspectedEntity.operator) {
+          if (isOperator(inspectedEntity)) {
             area.operatorBox = undefined;
           } else {
             area.boxes = area.boxes.filter(
@@ -703,12 +708,15 @@ function createBox({
   x,
   y,
   value,
+  name,
 }: {
   x: number;
   y: number;
   value?: number;
+  name?: string;
 }): Box {
   let newBox: Box = {
+    name: name || "",
     x,
     y,
     value: value || 1,
@@ -759,11 +767,11 @@ function createOperator({
         });
       }
     }
-    newOperator.operator = name || applyOperation.name;
+    newOperator.name = name || applyOperation.name;
   } else {
     newOperator.applyOperation = (a) => a;
     Object.defineProperty(newOperator.applyOperation, "name", { value: "id" });
-    newOperator.operator = "id";
+    newOperator.name = "id";
   }
 
   return newOperator;
@@ -787,7 +795,7 @@ function handleDrag(event: MouseEvent): void {
     // only when creating new operators
     // or when moving existing boxes
     if (
-      (selectedEntity.new && selectedEntity.operator) ||
+      (selectedEntity.new && isOperator(selectedEntity)) ||
       !selectedEntity.new
     ) {
       previewCoordinate = getClosestGrid(mouse.x, mouse.y);
@@ -893,7 +901,13 @@ function animateBoxLines() {
   let animationDuration = 4000;
   let startTime = performance.now();
   function animateLine() {
-    draw();
+    let times = getClosestArea(400, 100)?.boxes[0].value || 1;
+    if (times > 0) {
+      for (let i = 0; i < times; i++) {
+        draw();
+      }
+    }
+
     let time = performance.now();
     let progress = (time - startTime) / animationDuration;
     if (progress > 1) {
@@ -954,12 +968,14 @@ function addBoxToArea({
   x,
   y,
   value,
+  name,
 }: {
   x: number;
   y: number;
   value?: number;
+  name?: string;
 }) {
-  let box = createBox({ x, y, value });
+  let box = createBox({ x, y, value, name });
   let area = getClosestArea(x, y);
   if (area) {
     area.boxes.push(box);
@@ -1022,6 +1038,8 @@ function init() {
       spacePressed = false;
     }
   });
+
+  addBoxToArea({ x: 400, y: 100, name: "drawSpeed" });
 
   addBoxToArea({ x: 200, y: 100 });
   addOperatorToArea({
