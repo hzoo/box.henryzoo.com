@@ -22,7 +22,7 @@ type Box = Coord & {
 
 type Operator = Box & {
   outputOffsets: Coord[]; // store offset from x,y
-  applyOperation: (b: any) => any;
+  fn: (b: any) => any;
 };
 
 type Area = {
@@ -37,7 +37,7 @@ type Selection = Operator & {
 };
 
 function isOperator(entity: Box | Operator): entity is Operator {
-  return (entity as Operator).applyOperation !== undefined;
+  return (entity as Operator).fn !== undefined;
 }
 
 const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
@@ -62,7 +62,7 @@ let inspectedEntity: Operator = {
   outputOffsets: [],
   history: [],
   value: 0,
-  applyOperation: (b) => b,
+  fn: (b) => b,
 };
 // where the preview box would be placed if dropped on mouseup, snapped to grid
 let previewCoordinate: Coord | undefined = undefined;
@@ -238,7 +238,7 @@ function draw() {
             y: operatorBox.y + operatorBox.outputOffsets[0].y,
           };
 
-          let result = operatorBox.applyOperation(box.value);
+          let result = operatorBox.fn(box.value);
           if (typeof result === "number") {
             box.value = result;
           } else {
@@ -516,7 +516,7 @@ function createContextMenu() {
           input.style.top = `${inspectedEntity.y}px`;
           input.style.width = `${GRID_SIZE * 3}px`;
           input.style.height = `${GRID_SIZE}px`;
-          input.value = inspectedEntity.applyOperation.toString();
+          input.value = inspectedEntity.fn.toString();
           document.body.appendChild(input);
           input.focus();
 
@@ -525,7 +525,7 @@ function createContextMenu() {
             try {
               let fn = new Function(`return ${inputValue}`);
               let opFn = fn();
-              inspectedEntity.applyOperation = opFn;
+              inspectedEntity.fn = opFn;
               let res = opFn(1);
               if (Array.isArray(res)) {
                 if (res.length > inspectedEntity.outputOffsets.length) {
@@ -547,9 +547,9 @@ function createContextMenu() {
                 inspectedEntity.outputOffsets =
                   inspectedEntity.outputOffsets.slice(0, 1);
               }
-              log(`set ${inspectedEntity.name} to ${opFn}`);
+              // log(`set ${inspectedEntity.name} to ${opFn}`);
             } catch (e) {
-              log(`error setting ${inspectedEntity.name} to ${inputValue}`);
+              // log(`error setting ${inspectedEntity.name} to ${inputValue}`);
             }
             input.remove();
           }
@@ -737,13 +737,13 @@ function createOperator({
   x,
   y,
   name,
-  applyOperation,
+  fn,
   outputOffsets,
 }: {
   x: number;
   y: number;
   name?: string;
-  applyOperation?: (b: any) => any;
+  fn?: (b: any) => any;
   outputOffsets?: { x: number; y: number }[];
 }): Operator {
   let newOperator: Operator = createBox({ x, y }) as Operator;
@@ -755,9 +755,9 @@ function createOperator({
     },
   ];
 
-  if (applyOperation) {
-    newOperator.applyOperation = applyOperation;
-    let res = applyOperation(1);
+  if (fn) {
+    newOperator.fn = fn;
+    let res = fn(1);
     if (Array.isArray(res)) {
       // create multiple outputOffets
       for (let i = 1; i < res.length; i++) {
@@ -767,10 +767,10 @@ function createOperator({
         });
       }
     }
-    newOperator.name = name || applyOperation.name;
+    newOperator.name = name || fn.name;
   } else {
-    newOperator.applyOperation = (a) => a;
-    Object.defineProperty(newOperator.applyOperation, "name", { value: "id" });
+    newOperator.fn = (a) => a;
+    Object.defineProperty(newOperator.fn, "name", { value: "id" });
     newOperator.name = "id";
   }
 
@@ -779,7 +779,7 @@ function createOperator({
 
 function handleDrag(event: MouseEvent): void {
   mouse = getMousePos(canvas, event);
-  logFixed(`${mouse.x}, ${mouse.y}`);
+  // logFixed(`${mouse.x}, ${mouse.y}`);
   if (!selectedEntity) {
     if (event.buttons === 1 && spacePressed) {
       canvas.style.cursor = "grabbing";
@@ -993,16 +993,16 @@ function addOperatorToArea({
   x,
   y,
   name,
-  applyOperation,
+  fn,
   outputOffsets,
 }: {
   x: number;
   y: number;
   name?: string;
-  applyOperation?: (b: any) => any;
+  fn?: (b: any) => any;
   outputOffsets?: { x: number; y: number }[];
 }) {
-  let operator = createOperator({ x, y, name, applyOperation, outputOffsets });
+  let operator = createOperator({ x, y, name, fn, outputOffsets });
   let area = getClosestArea(x, y);
   if (area) {
     area.operatorBox = operator;
@@ -1045,13 +1045,13 @@ function init() {
   addOperatorToArea({
     x: 200,
     y: 100,
-    applyOperation: (b) => b + 1,
+    fn: (b) => b + 1,
     name: "+1",
   });
   addOperatorToArea({
     x: 200,
     y: 200,
-    applyOperation: double,
+    fn: double,
   });
 
   addBoxToArea({ x: 50, y: 50, value: 2 });
@@ -1060,92 +1060,92 @@ function init() {
     x: 50,
     y: 50,
     name: "even?",
-    applyOperation: (b) => (b % 2 === 0 ? [b] : [undefined, b]),
+    fn: (b) => (b % 2 === 0 ? [b] : [, b]),
   });
 
   addOperatorToArea({
     x: 250,
     y: 100,
     name: "isEven",
-    applyOperation: (b) => b % 2 === 0,
+    fn: (b) => b % 2 === 0,
   });
   addBoxToArea({ x: 250, y: 100, value: 2 });
   addOperatorToArea({
     x: 250,
     y: 200,
-    applyOperation: clone,
+    fn: clone,
   });
   addBoxToArea({ x: 200, y: 200, value: 1 });
   addBoxToArea({ x: 0, y: 200, value: 1 });
   addBoxToArea({ x: 50, y: 200, value: 100 });
   addBoxToArea({ x: 100, y: 200, value: 1000 });
 
-  addOperatorToArea({
-    x: 50,
-    y: 300,
-    name: "id",
-    applyOperation: (b) => b,
-  });
-  addBoxToArea({ x: 50, y: 300, value: 16 });
-  addOperatorToArea({
-    x: 100,
-    y: 300,
-    name: ">>2",
-    applyOperation: (b) => b >> 2,
-  });
-  addOperatorToArea({
-    x: 150,
-    y: 300,
-    name: "id",
-    applyOperation: (b) => b,
-    outputOffsets: [{ x: -50, y: 100 }],
-  });
-  addOperatorToArea({
-    x: 100,
-    y: 400,
-    name: "<<2",
-    applyOperation: (b) => b << 2,
-    outputOffsets: [{ x: -50, y: -100 }],
-  });
+  // addOperatorToArea({
+  //   x: 50,
+  //   y: 300,
+  //   name: "id",
+  //   fn: (b) => b,
+  // });
+  // addBoxToArea({ x: 50, y: 300, value: 16 });
+  // addOperatorToArea({
+  //   x: 100,
+  //   y: 300,
+  //   name: ">>2",
+  //   fn: (b) => b >> 2,
+  // });
+  // addOperatorToArea({
+  //   x: 150,
+  //   y: 300,
+  //   name: "id",
+  //   fn: (b) => b,
+  //   outputOffsets: [{ x: -50, y: 100 }],
+  // });
+  // addOperatorToArea({
+  //   x: 100,
+  //   y: 400,
+  //   name: "<<2",
+  //   fn: (b) => b << 2,
+  //   outputOffsets: [{ x: -50, y: -100 }],
+  // });
 
-  addBoxToArea({ x: 250, y: 300, value: 16 });
-  addOperatorToArea({
-    x: 250,
-    y: 300,
-    name: ">>2",
-    applyOperation: (b) => b >> 2,
-    outputOffsets: [{ x: 50, y: 50 }],
-  });
-  addOperatorToArea({
-    x: 300,
-    y: 350,
-    name: "<<2",
-    applyOperation: (b) => b << 2,
-    outputOffsets: [{ x: -50, y: -50 }],
-  });
+  // addBoxToArea({ x: 250, y: 300, value: 16 });
+  // addOperatorToArea({
+  //   x: 250,
+  //   y: 300,
+  //   name: ">>2",
+  //   fn: (b) => b >> 2,
+  //   outputOffsets: [{ x: 50, y: 50 }],
+  // });
+  // addOperatorToArea({
+  //   x: 300,
+  //   y: 350,
+  //   name: "<<2",
+  //   fn: (b) => b << 2,
+  //   outputOffsets: [{ x: -50, y: -50 }],
+  // });
 
-  createLineOfBoxes({
-    x: 50,
-    y: 500,
-    count: 5,
-    value: 4,
-  });
-  createLineOfOperators({
-    x: 50,
-    y: 500,
-    name: ">>2",
-    applyOperation: (b) => b >> 2,
-    count: 5,
-    outputOffsets: [{ x: 0, y: 50 }],
-  });
-  createLineOfOperators({
-    x: 50,
-    y: 550,
-    name: "<<2",
-    applyOperation: (b) => b << 2,
-    count: 5,
-    outputOffsets: [{ x: 0, y: -50 }],
-  });
+  // createLineOfBoxes({
+  //   x: 50,
+  //   y: 500,
+  //   count: 5,
+  //   value: 4,
+  // });
+  // createLineOfOperators({
+  //   x: 50,
+  //   y: 500,
+  //   name: ">>2",
+  //   fn: (b) => b >> 2,
+  //   count: 5,
+  //   outputOffsets: [{ x: 0, y: 50 }],
+  // });
+  // createLineOfOperators({
+  //   x: 50,
+  //   y: 550,
+  //   name: "<<2",
+  //   fn: (b) => b << 2,
+  //   count: 5,
+  //   outputOffsets: [{ x: 0, y: -50 }],
+  // });
 
   animateBoxLines();
   requestAnimationFrame(draw);
@@ -1158,14 +1158,14 @@ function createLineOfOperators({
   y,
   count,
   name,
-  applyOperation,
+  fn,
   outputOffsets,
 }: {
   x: number;
   y: number;
   count: number;
   name?: string;
-  applyOperation?: (b: any) => any;
+  fn?: (b: any) => any;
   outputOffsets?: { x: number; y: number }[];
 }) {
   for (let i = 0; i < count; i++) {
@@ -1173,7 +1173,7 @@ function createLineOfOperators({
       x: x + i * GRID_SIZE,
       y,
       name,
-      applyOperation,
+      fn,
       outputOffsets,
     });
   }
