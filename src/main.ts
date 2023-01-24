@@ -264,14 +264,24 @@ function draw() {
             for (let i = 1; i < result.length; i++) {
               if (result[i] === undefined) continue;
 
+              let end = {
+                x: operatorBox.outputOffsets[0].x,
+                y: operatorBox.outputOffsets[0].y + i * GRID_SIZE,
+              };
+
+              if (operatorBox.outputOffsets[i]) {
+                end.x = operatorBox.outputOffsets[i].x;
+                end.y = operatorBox.outputOffsets[i].y;
+              }
+
               let newBox = {
                 name: "",
                 skipEval: true,
                 x: box.x,
                 y: box.y,
                 end: {
-                  x: operatorBox.x + operatorBox.outputOffsets[i].x,
-                  y: operatorBox.y + operatorBox.outputOffsets[i].y,
+                  x: operatorBox.x + end.x,
+                  y: operatorBox.y + end.y,
                 },
                 value: result[i],
                 history: [
@@ -1305,9 +1315,23 @@ function init() {
   addOperatorToArea({
     x: x + 50,
     y: y + -50 * 4,
-    name: "id",
+    name: "slow",
     fn: (a) => ({ value: a, speed: 0.5 }),
     outputOffsets: [{ x: -50, y: 50 }],
+  });
+
+  addOperatorToArea({
+    x: x + 50 * 3,
+    y: y + -50 * 4,
+    name: "0-n",
+    fn: (a) => {
+      // gen numbers from 0 to a
+      const n = [];
+      for (let i = 0; i <= a; i++) {
+        n.push(i);
+      }
+      return n;
+    },
   });
 
   animateBoxLines();
