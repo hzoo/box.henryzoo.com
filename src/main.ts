@@ -161,8 +161,8 @@ function drawLine(startCoord: Coord, endCoord: Coord) {
 }
 
 function draw() {
-  // clear canvas
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // clear canvas in animation frame
+  // ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = "black";
 
   let startX = -pan.x + (pan.x % GRID_SIZE);
@@ -920,12 +920,7 @@ function animateBoxLines() {
   let animationDuration = 4000;
   let startTime = performance.now();
   function animateLine() {
-    let times = getClosestArea(400, 100)?.boxes[0].value || 1;
-    if (times > 0) {
-      for (let i = 0; i < times; i++) {
-        draw();
-      }
-    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     let time = performance.now();
     let progress = (time - startTime) / animationDuration;
@@ -973,6 +968,13 @@ function animateBoxLines() {
             drawLine(start, end);
           }
         }
+      }
+    }
+
+    let times = getClosestArea(400, 100)?.boxes[0].value || 1;
+    if (times > 0) {
+      for (let i = 0; i < times; i++) {
+        draw();
       }
     }
 
@@ -1106,39 +1108,39 @@ function init() {
     fn: clone,
   });
   addBoxToArea({ x: 200, y: 200, value: 1 });
-  addBoxToArea({ x: 0, y: 200, value: 1 });
-  addBoxToArea({ x: 50, y: 200, value: 100 });
-  addBoxToArea({ x: 100, y: 200, value: 1000 });
+  addBoxToArea({ x: 0, y: 200, value: 3 });
+  addBoxToArea({ x: 50, y: 200, value: 5 });
+  addBoxToArea({ x: 100, y: 200, value: 15 });
 
-  x = 400;
-  y = 200;
-  addOperatorToArea({
-    x,
-    y,
-    name: "id",
-    fn: (b) => b,
-  });
-  addBoxToArea({ x, y, value: 16 });
-  addOperatorToArea({
-    x: x + 50 * 1,
-    y: y + 50 * 0,
-    name: ">>2",
-    fn: (b) => b >> 2,
-  });
-  addOperatorToArea({
-    x: x + 50 * 2,
-    y: y + 50 * 0,
-    name: "id",
-    fn: (b) => b,
-    outputOffsets: [{ x: -50, y: 100 }],
-  });
-  addOperatorToArea({
-    x: x + 50 * 1,
-    y: y + 50 * 2,
-    name: "<<2",
-    fn: (b) => b << 2,
-    outputOffsets: [{ x: -50, y: -100 }],
-  });
+  // x = 400;
+  // y = 200;
+  // addOperatorToArea({
+  //   x,
+  //   y,
+  //   name: "id",
+  //   fn: (b) => b,
+  // });
+  // addBoxToArea({ x, y, value: 16 });
+  // addOperatorToArea({
+  //   x: x + 50 * 1,
+  //   y: y + 50 * 0,
+  //   name: ">>2",
+  //   fn: (b) => b >> 2,
+  // });
+  // addOperatorToArea({
+  //   x: x + 50 * 2,
+  //   y: y + 50 * 0,
+  //   name: "id",
+  //   fn: (b) => b,
+  //   outputOffsets: [{ x: -50, y: 100 }],
+  // });
+  // addOperatorToArea({
+  //   x: x + 50 * 1,
+  //   y: y + 50 * 2,
+  //   name: "<<2",
+  //   fn: (b) => b << 2,
+  //   outputOffsets: [{ x: -50, y: -100 }],
+  // });
 
   // createLineOfBoxes({
   //   x: 50,
@@ -1192,8 +1194,76 @@ function init() {
     fn: (a) => (a % 5 == 0 ? ["Buzz"] : [, a]),
     outputOffsets: [
       { x: 50 * 2, y: 0 },
-      { x: 0, y: 50 },
+      { x: 50 * 2, y: 50 * 2 },
     ],
+  });
+  addOperatorToArea({
+    x: x + 50 * 2,
+    y,
+    name: "id",
+    fn: (a) => a,
+    outputOffsets: [{ x: 50 * 2, y: 50 * 2 }],
+  });
+  addOperatorToArea({
+    x: x + 50 * 2,
+    y: y + 50 * 2,
+    name: "id",
+    fn: (a) => a,
+    outputOffsets: [{ x: 50 * 2, y: 0 }],
+  });
+  addOperatorToArea({
+    x: x + 50 * 2,
+    y: y + 50 * 4,
+    name: "id",
+    fn: (a) => a,
+    outputOffsets: [{ x: 50 * 2, y: -50 * 2 }],
+  });
+  addOperatorToArea({
+    x: x + 50 * 2,
+    y: y + 50 * 6,
+    name: "id",
+    fn: (a) => a,
+    outputOffsets: [{ x: 50 * 2, y: -50 * 4 }],
+  });
+
+  x = 350;
+  y = 350;
+  addOperatorToArea({
+    x,
+    y,
+    name: "%3,%5",
+    fn: (a) => (a % 3 == 0 && a % 5 == 0 ? ["FizzBuzz"] : [, a]),
+    outputOffsets: [
+      { x: 50 * 2, y: 50 * 2 },
+      { x: 0, y: 50 * 2 },
+    ],
+  });
+  addOperatorToArea({
+    x: x + 50 * 0,
+    y: y + 50 * 2,
+    name: "%3",
+    fn: (a) => (a % 3 == 0 ? ["Fizz"] : [, a]),
+    outputOffsets: [
+      { x: 50 * 2, y: 0 },
+      { x: 0, y: 50 * 2 },
+    ],
+  });
+  addOperatorToArea({
+    x: x + 50 * 0,
+    y: y + 50 * 4,
+    name: "%5",
+    fn: (a) => (a % 5 == 0 ? ["Buzz"] : [, a]),
+    outputOffsets: [
+      { x: 50 * 2, y: -50 * 2 },
+      { x: 50 * 2, y: 0 },
+    ],
+  });
+  addOperatorToArea({
+    x: x + 50 * 2,
+    y: y + 50 * 4,
+    name: "id",
+    fn: (a) => a,
+    outputOffsets: [{ x: 0, y: -50 * 2 }],
   });
 
   animateBoxLines();
