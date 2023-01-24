@@ -19,6 +19,7 @@ type Box = Coord & {
   updated?: boolean; // already operated on in loop
   end?: Coord; // where to animate towards
   skipEval?: boolean; // skip evaluation in loop
+  speed?: number; // how fast to animate
 };
 
 type Operator = Box & {
@@ -44,6 +45,7 @@ function isOperator(entity: Box | Operator): entity is Operator {
 const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
 let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 let GRID_SIZE = 50;
+let drawSpeed = 1;
 ctx.textAlign = "center";
 ctx.textBaseline = "middle";
 ctx.font = `${GRID_SIZE / 4}px Arial`;
@@ -282,20 +284,27 @@ function draw() {
               area.boxes.push(newBox);
             }
           } else {
-            box.value = result;
+            if (result?.constructor === Object) {
+              if (result?.name) box.name = result.name;
+              if (result?.value) box.value = result.value;
+              if (result?.end) box.end = result.end;
+              if (result?.speed) box.speed = result.speed;
+            } else {
+              box.value = result;
+            }
           }
 
           box.history.push({
             operator: operatorBox.name,
-            value: operatorBox.value,
+            value: box.value,
           });
         }
 
         box.skipEval = undefined;
         let end = box.end!;
 
-        box.x += (end.x - box.x) * 0.05;
-        box.y += (end.y - box.y) * 0.05;
+        box.x += (end.x - box.x) * 0.05 * (box.speed || drawSpeed);
+        box.y += (end.y - box.y) * 0.05 * (box.speed || drawSpeed);
 
         // account for negative differnces using math.abs
         if (
@@ -303,6 +312,7 @@ function draw() {
           (Math.abs(end.y - box.y) < 1 && box.y !== end.y)
         ) {
           box.updated = true;
+          box.speed = undefined;
           box.x = end.x;
           box.y = end.y;
 
@@ -477,6 +487,9 @@ function createInput(property: "name" | "value") {
       let val = (event.target as HTMLInputElement).value;
       if (property == "value") {
         inspectedEntity[property] = parseInt(val);
+        if (inspectedEntity.name === "drawSpeed") {
+          drawSpeed = parseInt(val);
+        }
       } else {
         inspectedEntity[property] = val;
       }
@@ -489,6 +502,9 @@ function createInput(property: "name" | "value") {
     let val = (event.target as HTMLInputElement).value;
     if (property == "value") {
       inspectedEntity[property] = parseInt(val);
+      if (inspectedEntity.name === "drawSpeed") {
+        drawSpeed = parseInt(val);
+      }
     } else {
       inspectedEntity[property] = val;
     }
@@ -971,13 +987,7 @@ function animateBoxLines() {
       }
     }
 
-    let times = getClosestArea(400, 100)?.boxes[0].value || 1;
-    if (times > 0) {
-      for (let i = 0; i < times; i++) {
-        draw();
-      }
-    }
-
+    draw();
     requestAnimationFrame(animateLine);
   }
   requestAnimationFrame(animateLine);
@@ -1071,46 +1081,48 @@ function init() {
   let x = 0;
   let y = 0;
 
-  addBoxToArea({ x: 400, y: 100, name: "drawSpeed" });
+  addBoxToArea({ x: 500, y: 50, name: "drawSpeed" });
 
-  addBoxToArea({ x: 200, y: 100 });
+  x = 50;
+  y = 100;
   addOperatorToArea({
-    x: 200,
-    y: 100,
-    fn: (b) => b + 1,
-    name: "+1",
-  });
-  addOperatorToArea({
-    x: 200,
-    y: 200,
+    x,
+    y: y + 100,
     fn: double,
   });
-
-  addBoxToArea({ x: 50, y: 50, value: 2 });
-  addBoxToArea({ x: 50, y: 50, value: 1 });
   addOperatorToArea({
-    x: 50,
-    y: 50,
+    x: x + 50,
+    y: y + 100,
+    fn: clone,
+  });
+
+  x = 50;
+  y = 50;
+  addBoxToArea({ x, y, value: 1 });
+  addBoxToArea({ x, y, value: 2 });
+  addOperatorToArea({
+    x,
+    y,
     name: "even?",
     fn: (b) => (b % 2 === 0 ? [b] : [, b]),
   });
 
+  x = 250;
+  y = 50;
+  addBoxToArea({ x: 200, y: 50, value: 1 });
+  addBoxToArea({ x: 250, y, value: 2 });
   addOperatorToArea({
-    x: 250,
-    y: 100,
+    x,
+    y,
     name: "isEven",
     fn: (b) => b % 2 === 0,
   });
-  addBoxToArea({ x: 250, y: 100, value: 2 });
   addOperatorToArea({
-    x: 250,
-    y: 200,
-    fn: clone,
+    x: x - 50,
+    y,
+    fn: (b) => b,
+    name: "id",
   });
-  addBoxToArea({ x: 200, y: 200, value: 1 });
-  addBoxToArea({ x: 0, y: 200, value: 3 });
-  addBoxToArea({ x: 50, y: 200, value: 5 });
-  addBoxToArea({ x: 100, y: 200, value: 15 });
 
   // x = 400;
   // y = 200;
@@ -1264,6 +1276,38 @@ function init() {
     name: "id",
     fn: (a) => a,
     outputOffsets: [{ x: 0, y: -50 * 2 }],
+  });
+
+  addBoxToArea({
+    x: x - 50,
+    y: y + -50 * 3,
+    value: 15,
+    name: "length",
+  });
+  addOperatorToArea({
+    x: x,
+    y: y + -50 * 3,
+    name: "gen",
+    fn: function gen(n): number[] {
+      if (n === 0) {
+        return [];
+      } else if (n === 1) {
+        return [0, n];
+      } else {
+        return [n - 1, gen(n - 1)[1] + 1];
+      }
+    },
+    outputOffsets: [
+      { x: 50, y: -50 },
+      { x: 0, y: 50 * 3 },
+    ],
+  });
+  addOperatorToArea({
+    x: x + 50,
+    y: y + -50 * 4,
+    name: "id",
+    fn: (a) => ({ value: a, speed: 0.5 }),
+    outputOffsets: [{ x: -50, y: 50 }],
   });
 
   animateBoxLines();
