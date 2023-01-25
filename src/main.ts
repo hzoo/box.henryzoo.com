@@ -253,6 +253,7 @@ function draw() {
           };
 
           let result = operatorBox.fn(box.value);
+
           if (Array.isArray(result)) {
             if (result[0] === undefined) {
               area.boxes = area.boxes.filter((b) => b !== box);
@@ -313,8 +314,13 @@ function draw() {
         box.skipEval = undefined;
         let end = box.end!;
 
-        box.x += (end.x - box.x) * 0.05 * (box.speed || drawSpeed);
-        box.y += (end.y - box.y) * 0.05 * (box.speed || drawSpeed);
+        // only if not already at the end
+        if (box.x !== end.x) {
+          box.x += (end.x - box.x) * 0.05 * (box.speed || drawSpeed);
+        }
+        if (box.y !== end.y) {
+          box.y += (end.y - box.y) * 0.05 * (box.speed || drawSpeed);
+        }
 
         // account for negative differnces using math.abs
         if (
@@ -1292,11 +1298,11 @@ function init() {
     x: x - 50,
     y: y + -50 * 3,
     value: 15,
-    name: "length",
+    name: "n",
   });
   addOperatorToArea({
-    x: x,
-    y: y + -50 * 3,
+    x: x + 50 * 0,
+    y: y + -50 * 2,
     name: "gen",
     fn: function gen(n): number[] {
       if (n === 0) {
@@ -1308,16 +1314,16 @@ function init() {
       }
     },
     outputOffsets: [
-      { x: 50, y: -50 },
-      { x: 0, y: 50 * 3 },
+      { x: 50, y: 0 },
+      { x: 0, y: 50 * 2 },
     ],
   });
   addOperatorToArea({
     x: x + 50,
-    y: y + -50 * 4,
+    y: y + -50 * 2,
     name: "slow",
-    fn: (a) => ({ value: a, speed: 0.5 }),
-    outputOffsets: [{ x: -50, y: 50 }],
+    fn: (a) => ({ value: a, speed: 1 }),
+    outputOffsets: [{ x: -50 * 1, y: 0 }],
   });
 
   addOperatorToArea({
