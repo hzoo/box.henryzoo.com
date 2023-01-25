@@ -640,8 +640,11 @@ function createContextMenu() {
                     inspectedEntity.outputOffsets.slice(0, res.length);
                 }
               } else {
-                inspectedEntity.outputOffsets =
-                  inspectedEntity.outputOffsets.slice(0, 1);
+                if (inspectedEntity.name.startsWith("is")) {
+                } else {
+                  inspectedEntity.outputOffsets =
+                    inspectedEntity.outputOffsets.slice(0, 1);
+                }
               }
               // log(`set ${inspectedEntity.name} to ${opFn}`);
             } catch (e) {
@@ -1184,7 +1187,7 @@ function init() {
   let x = 0;
   let y = 0;
 
-  addEntityToArea(createBox({ x: 500, y: 50, name: "drawSpeed" }));
+  addEntityToArea(createBox({ x: 500, y: 50, name: "drawSpeed", value: 1 }));
 
   x = 50;
   y = 100;
@@ -1368,8 +1371,8 @@ function init() {
 
   addEntityToArea(
     createBox({
-      x: x - 50,
-      y: y + -50 * 3,
+      x: x - 50 * 0,
+      y: y + -50 * 2,
       value: 15,
       name: "n",
     })
