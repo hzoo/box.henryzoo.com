@@ -25,6 +25,8 @@
 - fn just generates a lot of values
   - simulate mousemove/mousedown as creating inputs? one could have the code itself as series of boxes
 - [ ] hover over boxes to view underneath, or fan out animation?
+- how to handle function composition, naming, scope, variables?
+- maybe each return statement is it's own output location? Or if nothing is returned, return the value to another location.
 
 ## metaphors
 

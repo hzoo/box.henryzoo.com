@@ -1,6 +1,6 @@
 export {};
 
-type MapCoordinates = `${number},${number}`;
+type KeyCoordinates = `${number},${number}`;
 
 type Coord = {
   x: number;
@@ -46,8 +46,8 @@ function isBox(entity: Box | Operator): entity is Box {
   return isOperator(entity) === false;
 }
 
-let width = document.body.clientWidth;
-let height = document.body.clientHeight || 500;
+let WIDTH = document.body.clientWidth;
+let HEIGHT = document.body.clientHeight || 500;
 const canvas = (function () {
   try {
     document.getElementById("canvas")?.remove();
@@ -56,7 +56,7 @@ const canvas = (function () {
   }
   document.body.insertAdjacentHTML(
     "afterbegin",
-    `<canvas width="${width}" height="${height}" id="canvas"></canvas>`
+    `<canvas width="${WIDTH}" height="${HEIGHT}" id="canvas"></canvas>`
   );
   return document.getElementById("canvas") as HTMLCanvasElement;
 })();
@@ -76,7 +76,7 @@ ctx.textBaseline = "middle";
 ctx.font = `${GRID_SIZE / 4}px Arial`;
 
 // coordinate areas contain boxes and potential operator
-let areas: Map<MapCoordinates, Area> = new Map();
+let areas: Map<KeyCoordinates, Area> = new Map();
 // @ts-ignore
 window.areas = areas;
 
@@ -131,8 +131,12 @@ function _isEmptyArea(area: Area): boolean {
   return area.boxes.length === 0 && area.operatorBox === undefined;
 }
 
-function isAreaEmpty(key: MapCoordinates): boolean {
+function isAreaEmpty(key: KeyCoordinates): boolean {
   return !areas.has(key) || _isEmptyArea(areas.get(key) as Area);
+}
+
+function toKey(x: number, y: number): KeyCoordinates {
+  return `${x},${y}`;
 }
 
 // This function returns the closest grid point to the point (x, y).
@@ -243,6 +247,10 @@ function draw() {
 
     // draw each operator
     if (operatorBox) {
+      if (operatorBox.name.startsWith("is")) {
+        ctx.strokeStyle = "red";
+      }
+
       drawBorder(operatorBox.x, operatorBox.y, GRID_SIZE, true);
 
       // move y position up or down depending on if there is an operator above it
@@ -321,15 +329,27 @@ function draw() {
                 ],
               });
             }
-          } else {
-            if (result?.constructor === Object) {
-              if (result?.name) box.name = result.name;
-              if (result?.value) box.value = result.value;
-              if (result?.end) box.end = result.end;
-              if (result?.speed) box.speed = result.speed;
-            } else {
-              box.value = result;
+          } else if (result?.constructor === Object) {
+            if (result?.name) box.name = result.name;
+            if (result?.value) box.value = result.value;
+            if (result?.end) box.end = result.end;
+            if (result?.speed) box.speed = result.speed;
+          } else if (operatorBox.name.startsWith("is")) {
+            // move down
+            if (result == false) {
+              box.end = {
+                x: operatorBox.x + operatorBox.outputOffsets[0].x,
+                y: operatorBox.y + operatorBox.outputOffsets[0].y + GRID_SIZE,
+              };
+              if (operatorBox.outputOffsets[1]) {
+                box.end = {
+                  x: operatorBox.x + operatorBox.outputOffsets[1].x,
+                  y: operatorBox.y + operatorBox.outputOffsets[1].y,
+                };
+              }
             }
+          } else {
+            box.value = result;
           }
 
           box.history.push({
@@ -453,8 +473,10 @@ function getMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
 
 // function to check closest box Coordinate
 function getClosestArea(x: number, y: number): Area | undefined {
+  // let coord = getClosestGrid(x, y);
+  // let key: KeyCoordinates = toKey(coord.x, coord.y);
   let { x: closestX, y: closestY } = getClosestGrid(x, y);
-  let key: MapCoordinates = `${closestX},${closestY}`;
+  let key: KeyCoordinates = `${closestX},${closestY}`;
   if (areas.has(key)) {
     return areas.get(key);
   }
@@ -637,7 +659,7 @@ function createContextMenu() {
             ) as Selection[];
           }
 
-          let coord: MapCoordinates = `${inspectedEntity.x},${inspectedEntity.y}`;
+          let coord: KeyCoordinates = `${inspectedEntity.x},${inspectedEntity.y}`;
           if (isAreaEmpty(coord)) {
             areas.delete(coord);
           }
@@ -784,7 +806,12 @@ function handleDrag(event: MouseEvent): void {
     }
   } else if (altPressed) {
     if (isBox(selectedEntity)) {
-      selectedEntity.value += Math.round(event.movementX / 4);
+      if (typeof selectedEntity.value == "number") {
+        selectedEntity.value += Math.round(event.movementX / 4);
+        if (selectedEntity.name === "drawSpeed") {
+          drawSpeed = selectedEntity.value;
+        }
+      }
     }
   } else {
     selectedEntity.x = mouse.x - offset.x - GRID_SIZE / 2;
@@ -810,23 +837,25 @@ function handleDrop(event: MouseEvent): void {
   }
   // mouse = getMousePos(canvas, event);
 
-  let oldCoord: MapCoordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
-  let oldArea = areas.get(oldCoord)!;
+  let startCoord: KeyCoordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
+  let startArea = areas.get(startCoord)!;
 
   // when moving existing boxes around
   if (!selectedEntity.new && previewCoordinate) {
-    if (oldArea) {
+    if (startArea) {
       // delete old box
       if (isOperator(selectedEntity)) {
-        oldArea!.operatorBox = undefined;
-      } else if (oldArea.boxes) {
-        oldArea.boxes = oldArea.boxes.filter((box) => box !== selectedEntity);
+        startArea!.operatorBox = undefined;
+      } else if (startArea.boxes) {
+        startArea.boxes = startArea.boxes.filter(
+          (box) => box !== selectedEntity
+        );
       }
     }
 
     let x = previewCoordinate.x;
     let y = previewCoordinate.y;
-    let key: MapCoordinates = `${x},${y}`;
+    let key: KeyCoordinates = `${x},${y}`;
 
     // if new area
     if (isAreaEmpty(key)) {
@@ -850,7 +879,7 @@ function handleDrop(event: MouseEvent): void {
         // if area already has operator
         if (areas.get(key)!.operatorBox) {
           // move operator back to old area
-          areas.get(oldCoord)!.operatorBox = {
+          areas.get(startCoord)!.operatorBox = {
             ...selectedEntity,
             x: selectedEntity.startX,
             y: selectedEntity.startY,
@@ -873,17 +902,16 @@ function handleDrop(event: MouseEvent): void {
       }
     }
 
-    // delete area if empty
-    if (isAreaEmpty(oldCoord)) {
-      areas.delete(oldCoord);
+    if (isAreaEmpty(startCoord)) {
+      areas.delete(startCoord);
     }
   } else if (selectedEntity.new) {
-    if (oldArea?.operatorBox) {
+    if (startArea?.operatorBox) {
       // set output location of operator to mouse area coord
-      oldArea.operatorBox.outputOffsets = [
+      startArea.operatorBox.outputOffsets = [
         {
-          x: previewCoordinate!.x - oldArea.operatorBox.x,
-          y: previewCoordinate!.y - oldArea.operatorBox.y,
+          x: previewCoordinate!.x - startArea.operatorBox.x,
+          y: previewCoordinate!.y - startArea.operatorBox.y,
         },
       ];
     }
@@ -892,6 +920,39 @@ function handleDrop(event: MouseEvent): void {
   draw();
   previewCoordinate = undefined;
   selectedEntity = undefined;
+}
+
+function drawOperatorLine(
+  operatorBox: Operator,
+  {
+    boxOffset,
+    dotSize,
+    dotSpacing,
+    progress,
+  }: { boxOffset: Coord; dotSize: number; dotSpacing: number; progress: number }
+) {
+  let dotCount = Math.floor(
+    Math.sqrt(Math.pow(boxOffset.x, 2) + Math.pow(boxOffset.y, 2)) /
+      (dotSize + dotSpacing)
+  );
+
+  let start = {
+    x: operatorBox.x + GRID_SIZE / 2,
+    y: operatorBox.y + GRID_SIZE / 2,
+  };
+  let end = {
+    x: operatorBox.x + boxOffset.x + GRID_SIZE / 2,
+    y: operatorBox.y + boxOffset.y + GRID_SIZE / 2,
+  };
+
+  ctx.setLineDash([dotSize, dotSpacing]);
+  ctx.lineDashOffset = -Math.round(
+    progress * (dotSize + dotSpacing) * dotCount
+  );
+  // different color for moving line, so it's easier to see
+  ctx.strokeStyle = "#78350f";
+  // draw line
+  drawLine(start, end);
 }
 
 function animateBoxLines() {
@@ -923,29 +984,31 @@ function animateBoxLines() {
       if (operatorBox) {
         //  draw lines to output locations
         if (operatorBox.outputOffsets) {
-          for (let offset of operatorBox.outputOffsets) {
-            let dotCount = Math.floor(
-              Math.sqrt(Math.pow(offset.x, 2) + Math.pow(offset.y, 2)) /
-                (dotSize + dotSpacing)
-            );
+          for (let i = 0; i < operatorBox.outputOffsets.length; i++) {
+            let boxOffset = operatorBox.outputOffsets[i];
+            drawOperatorLine(operatorBox, {
+              boxOffset,
+              dotSize,
+              dotSpacing,
+              progress,
+            });
+          }
 
-            let start = {
-              x: operatorBox.x + GRID_SIZE / 2,
-              y: operatorBox.y + GRID_SIZE / 2,
-            };
-            let end = {
-              x: operatorBox.x + offset.x + GRID_SIZE / 2,
-              y: operatorBox.y + offset.y + GRID_SIZE / 2,
+          if (
+            operatorBox.outputOffsets.length == 1 &&
+            operatorBox.name.startsWith("is")
+          ) {
+            let boxOffset = {
+              x: GRID_SIZE,
+              y: GRID_SIZE,
             };
 
-            ctx.setLineDash([dotSize, dotSpacing]);
-            ctx.lineDashOffset = -Math.round(
-              progress * (dotSize + dotSpacing) * dotCount
-            );
-            // different color for moving line, so it's easier to see
-            ctx.strokeStyle = "#78350f";
-            // draw line
-            drawLine(start, end);
+            drawOperatorLine(operatorBox, {
+              boxOffset,
+              dotSize,
+              dotSpacing,
+              progress,
+            });
           }
         }
       }
@@ -986,6 +1049,7 @@ function createBox({
   return newBox;
 }
 
+// TODO: history for operator?
 function createOperator({
   x,
   y,
@@ -1034,7 +1098,7 @@ function createOperator({
 }
 
 // add a box or operator to an area coordinate
-function addEntityToArea(entity: Box | Operator) {
+function addEntityToArea(entity: Box | Operator, key?: KeyCoordinates) {
   let area = getClosestArea(entity.x, entity.y);
   if (area) {
     if (isOperator(entity)) {
@@ -1211,14 +1275,14 @@ function init() {
   //   outputOffsets: [{ x: 0, y: -50 }],
   // });
 
-  x = 50;
-  y = 350;
+  x = 100;
+  y = 450;
   addEntityToArea(
     createOperator({
       x,
       y,
-      name: "%3,%5",
-      fn: (a) => (a % 3 == 0 && a % 5 == 0 ? ["FizzBuzz"] : [, a]),
+      name: "is %3&&%5",
+      fn: (a) => a % 3 == 0 && a % 5 == 0,
       outputOffsets: [
         { x: 50 * 2, y: 50 * 0 },
         { x: 0, y: 50 * 2 },
@@ -1227,112 +1291,65 @@ function init() {
   );
   addEntityToArea(
     createOperator({
-      x: x + 50 * 0,
-      y: y + 50 * 2,
-      name: "%3",
-      fn: (a) => (a % 3 == 0 ? ["Fizz"] : [, a]),
-      outputOffsets: [
-        { x: 50 * 2, y: 0 },
-        { x: 0, y: 50 * 2 },
-      ],
-    })
-  );
-  addEntityToArea(
-    createOperator({
-      x: x + 50 * 0,
-      y: y + 50 * 4,
-      name: "%5",
-      fn: (a) => (a % 5 == 0 ? ["Buzz"] : [, a]),
-      outputOffsets: [
-        { x: 50 * 2, y: 0 },
-        { x: 50 * 2, y: 50 * 2 },
-      ],
-    })
-  );
-  addEntityToArea(
-    createOperator({
       x: x + 50 * 2,
       y,
-      name: "id",
-      fn: (a) => a,
+      name: "FizzBuzz",
+      fn: (a) => "FizzBuzz",
       outputOffsets: [{ x: 50 * 2, y: 50 * 2 }],
     })
   );
   addEntityToArea(
     createOperator({
+      x: x + 50 * 0,
+      y: y + 50 * 2,
+      name: "is %3",
+      fn: (a) => a % 3 == 0,
+      outputOffsets: [
+        { x: 50 * 2, y: 0 },
+        { x: 0, y: 50 * 2 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
       x: x + 50 * 2,
       y: y + 50 * 2,
-      name: "id",
-      fn: (a) => a,
+      name: "Fizz",
+      fn: (a) => "Fizz",
       outputOffsets: [{ x: 50 * 2, y: 0 }],
     })
   );
   addEntityToArea(
     createOperator({
+      x: x + 50 * 0,
+      y: y + 50 * 4,
+      name: "is %5",
+      fn: (a) => a % 5 == 0,
+      outputOffsets: [
+        { x: 50 * 2, y: 0 },
+        // { x: 50 * 2, y: 50 * 2 },
+        { x: 50 * 4, y: -50 * 2 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
       x: x + 50 * 2,
       y: y + 50 * 4,
-      name: "id",
-      fn: (a) => a,
+      name: "Buzz",
+      fn: (a) => "Buzz",
       outputOffsets: [{ x: 50 * 2, y: -50 * 2 }],
     })
   );
-  addEntityToArea(
-    createOperator({
-      x: x + 50 * 2,
-      y: y + 50 * 6,
-      name: "id",
-      fn: (a) => a,
-      outputOffsets: [{ x: 50 * 2, y: -50 * 4 }],
-    })
-  );
-
-  x = 350;
-  y = 350;
-  addEntityToArea(
-    createOperator({
-      x,
-      y,
-      name: "%3,%5",
-      fn: (a) => (a % 3 == 0 && a % 5 == 0 ? ["FizzBuzz"] : [, a]),
-      outputOffsets: [
-        { x: 50 * 2, y: 50 * 2 },
-        { x: 0, y: 50 * 2 },
-      ],
-    })
-  );
-  addEntityToArea(
-    createOperator({
-      x: x + 50 * 0,
-      y: y + 50 * 2,
-      name: "%3",
-      fn: (a) => (a % 3 == 0 ? ["Fizz"] : [, a]),
-      outputOffsets: [
-        { x: 50 * 2, y: 0 },
-        { x: 0, y: 50 * 2 },
-      ],
-    })
-  );
-  addEntityToArea(
-    createOperator({
-      x: x + 50 * 0,
-      y: y + 50 * 4,
-      name: "%5",
-      fn: (a) => (a % 5 == 0 ? ["Buzz"] : [, a]),
-      outputOffsets: [
-        { x: 50 * 2, y: -50 * 2 },
-        { x: 50 * 2, y: 0 },
-      ],
-    })
-  );
-  addEntityToArea(
-    createOperator({
-      x: x + 50 * 2,
-      y: y + 50 * 4,
-      name: "id",
-      fn: (a) => a,
-      outputOffsets: [{ x: 0, y: -50 * 2 }],
-    })
-  );
+  // addEntityToArea(
+  //   createOperator({
+  //     x: x + 50 * 2,
+  //     y: y + 50 * 6,
+  //     name: "id",
+  //     fn: (a) => a,
+  //     outputOffsets: [{ x: 50 * 2, y: -50 * 4 }],
+  //   })
+  // );
 
   addEntityToArea(
     createBox({
@@ -1367,14 +1384,14 @@ function init() {
       x: x + 50,
       y: y + -50 * 2,
       name: "slow",
-      fn: (a) => ({ value: a, speed: 1 }),
+      fn: (a) => ({ value: a, speed: drawSpeed / 3 }),
       outputOffsets: [{ x: -50 * 1, y: 0 }],
     })
   );
 
   addEntityToArea(
     createOperator({
-      x: x + 50 * 3,
+      x: x + 50 * 5,
       y: y + -50 * 4,
       name: "0-n",
       fn: (a) => {
@@ -1410,13 +1427,15 @@ function createLineOfOperators({
   outputOffsets?: { x: number; y: number }[];
 }) {
   for (let i = 0; i < count; i++) {
-    addEntityToArea({
-      x: x + i * GRID_SIZE,
-      y,
-      name,
-      fn,
-      outputOffsets,
-    });
+    addEntityToArea(
+      createOperator({
+        x: x + i * GRID_SIZE,
+        y,
+        name,
+        fn,
+        outputOffsets,
+      })
+    );
   }
 }
 
