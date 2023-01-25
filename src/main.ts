@@ -302,7 +302,8 @@ function draw() {
                 end.y = operatorBox.outputOffsets[i].y;
               }
 
-              let newBox = {
+              // add new box
+              area.boxes.push({
                 name: "",
                 skipEval: true,
                 x: box.x,
@@ -318,8 +319,7 @@ function draw() {
                     value: operatorBox.value,
                   },
                 ],
-              };
-              area.boxes.push(newBox);
+              });
             }
           } else {
             if (result?.constructor === Object) {
@@ -361,19 +361,8 @@ function draw() {
 
           // remove box from area
           area.boxes = area.boxes.filter((b) => b !== box);
-
-          // add box to new area based on x and y
-          let newArea = getClosestArea(box.x, box.y);
-          if (newArea) {
-            newArea.boxes.push(box);
-          } else {
-            // create new area
-            let newArea: Area = {
-              boxes: [box],
-              operatorBox: undefined,
-            };
-            areas.set(`${box.x},${box.y}`, newArea);
-          }
+          // add to new area
+          addEntityToArea(box);
         }
       } else {
         box.updated = false;
@@ -655,10 +644,10 @@ function createContextMenu() {
         }
         break;
       case "create-value":
-        addBoxToArea(contextMenuCoord);
+        addEntityToArea(createBox(contextMenuCoord));
         break;
       case "create-operator":
-        addOperatorToArea(contextMenuCoord);
+        addEntityToArea(createOperator(contextMenuCoord));
         break;
     }
 
@@ -748,15 +737,19 @@ function handleMousedown(event: MouseEvent): void {
     let newEntity;
 
     if (event.shiftKey) {
-      newEntity = addOperatorToArea({
-        x: mouse.x - GRID_SIZE / 2,
-        y: mouse.y - GRID_SIZE / 2,
-      });
+      newEntity = addEntityToArea(
+        createOperator({
+          x: mouse.x - GRID_SIZE / 2,
+          y: mouse.y - GRID_SIZE / 2,
+        })
+      );
     } else if (event.metaKey) {
-      newEntity = addBoxToArea({
-        x: mouse.x - GRID_SIZE / 2,
-        y: mouse.y - GRID_SIZE / 2,
-      });
+      newEntity = addEntityToArea(
+        createBox({
+          x: mouse.x - GRID_SIZE / 2,
+          y: mouse.y - GRID_SIZE / 2,
+        })
+      );
       console.log(newEntity);
     } else {
       return;
@@ -787,7 +780,7 @@ function handleDrag(event: MouseEvent): void {
       pan.y += event.movementY;
       // draw();
     } else if (metaPressed) {
-      // previewCoordinate = getClosestGrid(mouse.x, mouse.y);
+      previewCoordinate = getClosestGrid(mouse.x, mouse.y);
     }
   } else if (altPressed) {
     if (isBox(selectedEntity)) {
@@ -847,7 +840,6 @@ function handleDrop(event: MouseEvent): void {
         });
       } else {
         areas.set(key, {
-          operatorBox: undefined,
           boxes: [selectedEntity],
         });
       }
@@ -1041,57 +1033,28 @@ function createOperator({
   return newOperator;
 }
 
-// add a new box to an area coordinate
-// @dev round x and y to closest grid
-function addBoxToArea({
-  x,
-  y,
-  value,
-  name,
-}: {
-  x: number;
-  y: number;
-  value?: number;
-  name?: string;
-}) {
-  let box = createBox({ x, y, value, name });
-  let area = getClosestArea(x, y);
+// add a box or operator to an area coordinate
+function addEntityToArea(entity: Box | Operator) {
+  let area = getClosestArea(entity.x, entity.y);
   if (area) {
-    area.boxes.push(box);
+    if (isOperator(entity)) {
+      area.operatorBox = entity;
+    } else {
+      area.boxes.push(entity);
+    }
   } else {
-    areas.set(`${box.x},${box.y}`, {
-      boxes: [box],
-    });
+    if (isOperator(entity)) {
+      areas.set(`${entity.x},${entity.y}`, {
+        boxes: [],
+        operatorBox: entity,
+      });
+    } else {
+      areas.set(`${entity.x},${entity.y}`, {
+        boxes: [entity],
+      });
+    }
   }
-  return box;
-}
-
-// add an operator to an area coordinate
-// @dev round x and y to closest grid
-function addOperatorToArea({
-  x,
-  y,
-  name,
-  fn,
-  outputOffsets,
-}: {
-  x: number;
-  y: number;
-  name?: string;
-  fn?: (b: any) => any;
-  outputOffsets?: { x: number; y: number }[];
-}) {
-  let operator = createOperator({ x, y, name, fn, outputOffsets });
-  let area = getClosestArea(x, y);
-  if (area) {
-    area.operatorBox = operator;
-  } else {
-    areas.set(`${operator.x},${operator.y}`, {
-      boxes: [],
-      operatorBox: operator,
-    });
-  }
-  return operator;
+  return entity;
 }
 
 let double = (b: number) => b * 2;
@@ -1127,83 +1090,97 @@ function init() {
       canvas.style.cursor = "default";
       spacePressed = false;
     } else if (event.key === "Meta") {
+      canvas.style.cursor = "default";
       metaPressed = false;
       previewCoordinate = undefined;
     } else if (event.key === "Shift") {
       canvas.style.cursor = "default";
       shiftPressed = false;
+    } else if (event.key === "Alt") {
+      canvas.style.cursor = "default";
+      altPressed = false;
     }
   });
 
   let x = 0;
   let y = 0;
 
-  addBoxToArea({ x: 500, y: 50, name: "drawSpeed" });
+  addEntityToArea(createBox({ x: 500, y: 50, name: "drawSpeed" }));
 
   x = 50;
   y = 100;
-  addOperatorToArea({
-    x,
-    y: y + 100,
-    fn: double,
-  });
-  addOperatorToArea({
-    x: x + 50,
-    y: y + 100,
-    fn: clone,
-  });
+  addEntityToArea(
+    createOperator({
+      x,
+      y: y + 100,
+      fn: double,
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50,
+      y: y + 100,
+      fn: clone,
+    })
+  );
 
   x = 50;
   y = 50;
-  addBoxToArea({ x, y, value: 1 });
-  addBoxToArea({ x, y, value: 2 });
-  addOperatorToArea({
-    x,
-    y,
-    name: "even?",
-    fn: (b) => (b % 2 === 0 ? [b] : [, b]),
-  });
+  addEntityToArea(createBox({ x, y, value: 1 }));
+  addEntityToArea(createBox({ x, y, value: 2 }));
+  addEntityToArea(
+    createOperator({
+      x,
+      y,
+      name: "even?",
+      fn: (b) => (b % 2 === 0 ? [b] : [, b]),
+    })
+  );
 
   x = 250;
   y = 50;
-  addBoxToArea({ x: 200, y: 50, value: 1 });
-  addBoxToArea({ x: 250, y, value: 2 });
-  addOperatorToArea({
-    x,
-    y,
-    name: "isEven",
-    fn: (b) => b % 2 === 0,
-  });
-  addOperatorToArea({
-    x: x - 50,
-    y,
-    fn: (b) => b,
-    name: "id",
-  });
+  addEntityToArea(createBox({ x: 200, y: 50, value: 1 }));
+  addEntityToArea(createBox({ x: 250, y, value: 2 }));
+  addEntityToArea(
+    createOperator({
+      x,
+      y,
+      name: "isEven",
+      fn: (b) => b % 2 === 0,
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x - 50,
+      y,
+      fn: (b) => b,
+      name: "id",
+    })
+  );
 
   // x = 400;
   // y = 200;
-  // addOperatorToArea({
+  // addEntityToArea({
   //   x,
   //   y,
   //   name: "id",
   //   fn: (b) => b,
   // });
-  // addBoxToArea({ x, y, value: 16 });
-  // addOperatorToArea({
+  // addEntityToArea(createBox({ x, y, value: 16 }));
+  // addEntityToArea({
   //   x: x + 50 * 1,
   //   y: y + 50 * 0,
   //   name: ">>2",
   //   fn: (b) => b >> 2,
   // });
-  // addOperatorToArea({
+  // addEntityToArea({
   //   x: x + 50 * 2,
   //   y: y + 50 * 0,
   //   name: "id",
   //   fn: (b) => b,
   //   outputOffsets: [{ x: -50, y: 100 }],
   // });
-  // addOperatorToArea({
+  // addEntityToArea({
   //   x: x + 50 * 1,
   //   y: y + 50 * 2,
   //   name: "<<2",
@@ -1236,157 +1213,187 @@ function init() {
 
   x = 50;
   y = 350;
-  addOperatorToArea({
-    x,
-    y,
-    name: "%3,%5",
-    fn: (a) => (a % 3 == 0 && a % 5 == 0 ? ["FizzBuzz"] : [, a]),
-    outputOffsets: [
-      { x: 50 * 2, y: 50 * 0 },
-      { x: 0, y: 50 * 2 },
-    ],
-  });
-  addOperatorToArea({
-    x: x + 50 * 0,
-    y: y + 50 * 2,
-    name: "%3",
-    fn: (a) => (a % 3 == 0 ? ["Fizz"] : [, a]),
-    outputOffsets: [
-      { x: 50 * 2, y: 0 },
-      { x: 0, y: 50 * 2 },
-    ],
-  });
-  addOperatorToArea({
-    x: x + 50 * 0,
-    y: y + 50 * 4,
-    name: "%5",
-    fn: (a) => (a % 5 == 0 ? ["Buzz"] : [, a]),
-    outputOffsets: [
-      { x: 50 * 2, y: 0 },
-      { x: 50 * 2, y: 50 * 2 },
-    ],
-  });
-  addOperatorToArea({
-    x: x + 50 * 2,
-    y,
-    name: "id",
-    fn: (a) => a,
-    outputOffsets: [{ x: 50 * 2, y: 50 * 2 }],
-  });
-  addOperatorToArea({
-    x: x + 50 * 2,
-    y: y + 50 * 2,
-    name: "id",
-    fn: (a) => a,
-    outputOffsets: [{ x: 50 * 2, y: 0 }],
-  });
-  addOperatorToArea({
-    x: x + 50 * 2,
-    y: y + 50 * 4,
-    name: "id",
-    fn: (a) => a,
-    outputOffsets: [{ x: 50 * 2, y: -50 * 2 }],
-  });
-  addOperatorToArea({
-    x: x + 50 * 2,
-    y: y + 50 * 6,
-    name: "id",
-    fn: (a) => a,
-    outputOffsets: [{ x: 50 * 2, y: -50 * 4 }],
-  });
+  addEntityToArea(
+    createOperator({
+      x,
+      y,
+      name: "%3,%5",
+      fn: (a) => (a % 3 == 0 && a % 5 == 0 ? ["FizzBuzz"] : [, a]),
+      outputOffsets: [
+        { x: 50 * 2, y: 50 * 0 },
+        { x: 0, y: 50 * 2 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 0,
+      y: y + 50 * 2,
+      name: "%3",
+      fn: (a) => (a % 3 == 0 ? ["Fizz"] : [, a]),
+      outputOffsets: [
+        { x: 50 * 2, y: 0 },
+        { x: 0, y: 50 * 2 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 0,
+      y: y + 50 * 4,
+      name: "%5",
+      fn: (a) => (a % 5 == 0 ? ["Buzz"] : [, a]),
+      outputOffsets: [
+        { x: 50 * 2, y: 0 },
+        { x: 50 * 2, y: 50 * 2 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 2,
+      y,
+      name: "id",
+      fn: (a) => a,
+      outputOffsets: [{ x: 50 * 2, y: 50 * 2 }],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 2,
+      y: y + 50 * 2,
+      name: "id",
+      fn: (a) => a,
+      outputOffsets: [{ x: 50 * 2, y: 0 }],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 2,
+      y: y + 50 * 4,
+      name: "id",
+      fn: (a) => a,
+      outputOffsets: [{ x: 50 * 2, y: -50 * 2 }],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 2,
+      y: y + 50 * 6,
+      name: "id",
+      fn: (a) => a,
+      outputOffsets: [{ x: 50 * 2, y: -50 * 4 }],
+    })
+  );
 
   x = 350;
   y = 350;
-  addOperatorToArea({
-    x,
-    y,
-    name: "%3,%5",
-    fn: (a) => (a % 3 == 0 && a % 5 == 0 ? ["FizzBuzz"] : [, a]),
-    outputOffsets: [
-      { x: 50 * 2, y: 50 * 2 },
-      { x: 0, y: 50 * 2 },
-    ],
-  });
-  addOperatorToArea({
-    x: x + 50 * 0,
-    y: y + 50 * 2,
-    name: "%3",
-    fn: (a) => (a % 3 == 0 ? ["Fizz"] : [, a]),
-    outputOffsets: [
-      { x: 50 * 2, y: 0 },
-      { x: 0, y: 50 * 2 },
-    ],
-  });
-  addOperatorToArea({
-    x: x + 50 * 0,
-    y: y + 50 * 4,
-    name: "%5",
-    fn: (a) => (a % 5 == 0 ? ["Buzz"] : [, a]),
-    outputOffsets: [
-      { x: 50 * 2, y: -50 * 2 },
-      { x: 50 * 2, y: 0 },
-    ],
-  });
-  addOperatorToArea({
-    x: x + 50 * 2,
-    y: y + 50 * 4,
-    name: "id",
-    fn: (a) => a,
-    outputOffsets: [{ x: 0, y: -50 * 2 }],
-  });
+  addEntityToArea(
+    createOperator({
+      x,
+      y,
+      name: "%3,%5",
+      fn: (a) => (a % 3 == 0 && a % 5 == 0 ? ["FizzBuzz"] : [, a]),
+      outputOffsets: [
+        { x: 50 * 2, y: 50 * 2 },
+        { x: 0, y: 50 * 2 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 0,
+      y: y + 50 * 2,
+      name: "%3",
+      fn: (a) => (a % 3 == 0 ? ["Fizz"] : [, a]),
+      outputOffsets: [
+        { x: 50 * 2, y: 0 },
+        { x: 0, y: 50 * 2 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 0,
+      y: y + 50 * 4,
+      name: "%5",
+      fn: (a) => (a % 5 == 0 ? ["Buzz"] : [, a]),
+      outputOffsets: [
+        { x: 50 * 2, y: -50 * 2 },
+        { x: 50 * 2, y: 0 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 2,
+      y: y + 50 * 4,
+      name: "id",
+      fn: (a) => a,
+      outputOffsets: [{ x: 0, y: -50 * 2 }],
+    })
+  );
 
-  addBoxToArea({
-    x: x - 50,
-    y: y + -50 * 3,
-    value: 15,
-    name: "n",
-  });
-  addOperatorToArea({
-    x: x + 50 * 0,
-    y: y + -50 * 2,
-    name: "gen",
-    fn: function gen(n): number[] {
-      if (n === 0) {
-        return [];
-      } else if (n === 1) {
-        return [0, n];
-      } else {
-        return [n - 1, gen(n - 1)[1] + 1];
-      }
-    },
-    outputOffsets: [
-      { x: 50, y: 0 },
-      { x: 0, y: 50 * 2 },
-    ],
-  });
-  addOperatorToArea({
-    x: x + 50,
-    y: y + -50 * 2,
-    name: "slow",
-    fn: (a) => ({ value: a, speed: 1 }),
-    outputOffsets: [{ x: -50 * 1, y: 0 }],
-  });
+  addEntityToArea(
+    createBox({
+      x: x - 50,
+      y: y + -50 * 3,
+      value: 15,
+      name: "n",
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 0,
+      y: y + -50 * 2,
+      name: "gen",
+      fn: function gen(n): number[] {
+        if (n === 0) {
+          return [];
+        } else if (n === 1) {
+          return [0, n];
+        } else {
+          return [n - 1, gen(n - 1)[1] + 1];
+        }
+      },
+      outputOffsets: [
+        { x: 50, y: 0 },
+        { x: 0, y: 50 * 2 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50,
+      y: y + -50 * 2,
+      name: "slow",
+      fn: (a) => ({ value: a, speed: 1 }),
+      outputOffsets: [{ x: -50 * 1, y: 0 }],
+    })
+  );
 
-  addOperatorToArea({
-    x: x + 50 * 3,
-    y: y + -50 * 4,
-    name: "0-n",
-    fn: (a) => {
-      // gen numbers from 0 to a
-      const n = [];
-      for (let i = 0; i <= a; i++) {
-        n.push(i);
-      }
-      return n;
-    },
-  });
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 3,
+      y: y + -50 * 4,
+      name: "0-n",
+      fn: (a) => {
+        // gen numbers from 0 to a
+        const n = [];
+        for (let i = 0; i <= a; i++) {
+          n.push(i);
+        }
+        return n;
+      },
+    })
+  );
 
   animateBoxLines();
   requestAnimationFrame(draw);
 }
 
 // function to create multiple operators in a line
-// using addOperatorToArea
+// using addEntityToArea
 function createLineOfOperators({
   x,
   y,
@@ -1403,7 +1410,7 @@ function createLineOfOperators({
   outputOffsets?: { x: number; y: number }[];
 }) {
   for (let i = 0; i < count; i++) {
-    addOperatorToArea({
+    addEntityToArea({
       x: x + i * GRID_SIZE,
       y,
       name,
@@ -1414,7 +1421,7 @@ function createLineOfOperators({
 }
 
 // function to create multiple boxes in a line
-// using addBoxToArea
+// using addEntityToArea
 function createLineOfBoxes({
   x,
   y,
@@ -1427,7 +1434,7 @@ function createLineOfBoxes({
   value?: number;
 }) {
   for (let i = 0; i < count; i++) {
-    addBoxToArea({ x: x + i * GRID_SIZE, y, value });
+    addEntityToArea(createBox({ x: x + i * GRID_SIZE, y, value }));
   }
 }
 
