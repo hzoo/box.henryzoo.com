@@ -193,6 +193,37 @@ function drawLine(startCoord: Coord, endCoord: Coord) {
   ctx.stroke();
 }
 
+function drawBox(box: Box) {
+  ctx.strokeStyle = "black";
+  ctx.fillStyle = "white";
+  fillRect(box.x, box.y, GRID_SIZE);
+  ctx.fillStyle = "black";
+  drawBorder(box.x, box.y, GRID_SIZE);
+
+  // draw value
+  let text = box.value.toString();
+  fillText(text, box.x + GRID_SIZE / 2, box.y + GRID_SIZE / 2);
+
+  // draw name if there is one
+  if (box.name) {
+    fillText(box.name, box.x + GRID_SIZE / 2, box.y - 10);
+  }
+}
+
+function drawBoxStack(x: number, y: number, length: number) {
+  ctx.beginPath();
+  ctx.arc(
+    x + GRID_SIZE + 7 + pan.x,
+    y + GRID_SIZE + 8 + pan.y,
+    9,
+    0,
+    2 * Math.PI
+  );
+  ctx.strokeStyle = "#f87171";
+  ctx.stroke();
+  fillText(`${length}`, x + GRID_SIZE + 7, y + GRID_SIZE + 9);
+}
+
 function draw() {
   // clear canvas in animation frame
   // ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -241,14 +272,38 @@ function draw() {
     );
   }
 
+  let operatorAreas = [];
+  // draw not moving boxes first
   for (let area of areas.values()) {
     let { operatorBox, boxes } = area;
-    ctx.strokeStyle = "black";
+
+    if (operatorBox) {
+      operatorAreas.push(area);
+      continue;
+    }
+
+    for (let box of boxes) {
+      drawBox(box);
+    }
+
+    if (boxes.length > 1) {
+      drawBoxStack(boxes[0].x, boxes[0].y, boxes.length);
+    }
+  }
+
+  for (let area of operatorAreas) {
+    let { operatorBox, boxes } = area;
+
+    if (!operatorBox) {
+      return;
+    }
 
     // draw each operator
-    if (operatorBox) {
+    if (operatorBox!) {
       if (operatorBox.name.startsWith("is")) {
         ctx.strokeStyle = "red";
+      } else {
+        ctx.strokeStyle = "black";
       }
 
       drawBorder(operatorBox.x, operatorBox.y, GRID_SIZE, true);
@@ -271,14 +326,11 @@ function draw() {
       }
 
       fillText(`${operatorBox.name}`, x, y);
-
-      // @dev draw line out of box moved to animateLine()
     }
 
-    // draw each box
+    // draw each moving box first
     for (let box of boxes) {
-      // drawBorder(box.x, box.y, GRID_SIZE);
-      if (operatorBox && !box.updated) {
+      if (!box.updated) {
         // change box value
         if (box.x == operatorBox.x && box.y == operatorBox.y && !box.skipEval) {
           // animate the box towards the end of the operator box
@@ -375,9 +427,10 @@ function draw() {
           (Math.abs(end.y - box.y) < 1 && box.y !== end.y)
         ) {
           box.updated = true;
-          box.speed = undefined;
           box.x = end.x;
           box.y = end.y;
+          box.end = undefined;
+          box.speed = undefined;
 
           // remove box from area
           area.boxes = area.boxes.filter((b) => b !== box);
@@ -388,56 +441,18 @@ function draw() {
         box.updated = false;
       }
 
-      // change color based on the distance from the operator box
-      // where the closest distance is red and the furthest distance is black
-      if (operatorBox) {
-        let distance = Math.sqrt(
-          Math.pow(operatorBox.x - box.x, 2) +
-            Math.pow(operatorBox.y - box.y, 2)
-        );
-        let maxDistance = Math.sqrt(
-          Math.pow(operatorBox.outputOffsets[0].x, 2) +
-            Math.pow(operatorBox.outputOffsets[0].y, 2)
-        );
-        let colorValue = Math.max(1 - distance / maxDistance, 0.33);
-        let color = `rgba(255, 0, 255, ${colorValue})`;
-        ctx.strokeStyle = color;
-      } else {
-        ctx.strokeStyle = "black";
-      }
-      ctx.fillStyle = "white";
-      fillRect(box.x, box.y, GRID_SIZE);
-      ctx.fillStyle = "black";
-      drawBorder(box.x, box.y, GRID_SIZE);
-
-      // draw value
-      let text = box.value.toString();
-      fillText(text, box.x + GRID_SIZE / 2, box.y + GRID_SIZE / 2);
-
-      // draw name if there is one
-      if (box.name) {
-        fillText(box.name, box.x + GRID_SIZE / 2, box.y - 10);
-      }
-    }
-
-    // TODO: needs to be drawn over boxes
-    // draw number of boxes in area in a circle
-    if (!area.operatorBox && boxes.length > 1) {
-      ctx.beginPath();
-      ctx.arc(
-        boxes[0].x + GRID_SIZE + 7 + pan.x,
-        boxes[0].y + GRID_SIZE + 8 + pan.y,
-        9,
-        0,
-        2 * Math.PI
+      let distance = Math.sqrt(
+        Math.pow(operatorBox.x - box.x, 2) + Math.pow(operatorBox.y - box.y, 2)
       );
-      ctx.strokeStyle = "#f87171";
-      ctx.stroke();
-      fillText(
-        `${boxes.length}`,
-        boxes[0].x + GRID_SIZE + 7,
-        boxes[0].y + GRID_SIZE + 9
+      let maxDistance = Math.sqrt(
+        Math.pow(operatorBox.outputOffsets[0].x, 2) +
+          Math.pow(operatorBox.outputOffsets[0].y, 2)
       );
+      let colorValue = Math.max(1 - distance / maxDistance, 0.33);
+      let color = `rgba(255, 0, 255, ${colorValue})`;
+      ctx.strokeStyle = color;
+
+      drawBox(box);
     }
   }
 
@@ -936,15 +951,6 @@ function drawOperatorLine(
       (dotSize + dotSpacing)
   );
 
-  let start = {
-    x: operatorBox.x + GRID_SIZE / 2,
-    y: operatorBox.y + GRID_SIZE / 2,
-  };
-  let end = {
-    x: operatorBox.x + boxOffset.x + GRID_SIZE / 2,
-    y: operatorBox.y + boxOffset.y + GRID_SIZE / 2,
-  };
-
   ctx.setLineDash([dotSize, dotSpacing]);
   ctx.lineDashOffset = -Math.round(
     progress * (dotSize + dotSpacing) * dotCount
@@ -952,7 +958,16 @@ function drawOperatorLine(
   // different color for moving line, so it's easier to see
   ctx.strokeStyle = "#78350f";
   // draw line
-  drawLine(start, end);
+  drawLine(
+    {
+      x: operatorBox.x + GRID_SIZE / 2,
+      y: operatorBox.y + GRID_SIZE / 2,
+    },
+    {
+      x: operatorBox.x + boxOffset.x + GRID_SIZE / 2,
+      y: operatorBox.y + boxOffset.y + GRID_SIZE / 2,
+    }
+  );
 }
 
 function animateBoxLines() {
