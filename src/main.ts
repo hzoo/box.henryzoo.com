@@ -42,7 +42,28 @@ function isOperator(entity: Box | Operator): entity is Operator {
   return (entity as Operator).fn !== undefined;
 }
 
-const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
+let width = document.body.clientWidth;
+let height = document.body.clientHeight || 500;
+const canvas = (function () {
+  try {
+    document.getElementById("canvas")?.remove();
+  } catch (e) {
+    console.log(e);
+  }
+  document.body.insertAdjacentHTML(
+    "afterbegin",
+    `<canvas width="${width}" height="${height}" id="canvas"></canvas>`
+  );
+  return document.getElementById("canvas") as HTMLCanvasElement;
+})();
+
+const observer = new ResizeObserver((_) => {
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+  draw();
+});
+observer.observe(canvas);
+
 let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 let GRID_SIZE = 50;
 let drawSpeed = 1;
