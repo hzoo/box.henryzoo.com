@@ -42,6 +42,10 @@ function isOperator(entity: Box | Operator): entity is Operator {
   return (entity as Operator).fn !== undefined;
 }
 
+function isBox(entity: Box | Operator): entity is Box {
+  return isOperator(entity) === false;
+}
+
 let width = document.body.clientWidth;
 let height = document.body.clientHeight || 500;
 const canvas = (function () {
@@ -96,6 +100,8 @@ let offset: Coord = {
 };
 let spacePressed = false;
 let metaPressed = false;
+let shiftPressed = false;
+let altPressed = false;
 let pan: Coord = {
   x: 0,
   y: 0,
@@ -705,7 +711,7 @@ canvas.addEventListener("contextmenu", function (event) {
 
 // box selection or new box
 function handleMousedown(event: MouseEvent): void {
-  // only left click
+  // if right click or space pressed, return
   if (event.button !== 0 || spacePressed) {
     return;
   }
@@ -770,86 +776,11 @@ function handleMousedown(event: MouseEvent): void {
   }
 }
 
-function createBox({
-  x,
-  y,
-  value,
-  name,
-}: {
-  x: number;
-  y: number;
-  value?: number;
-  name?: string;
-}): Box {
-  let newBox: Box = {
-    name: name || "",
-    x,
-    y,
-    value: value || 1,
-    history: [
-      {
-        operator: "init",
-        value: value || 1,
-      },
-    ],
-  };
-  newBox.x = Math.round(newBox.x / GRID_SIZE) * GRID_SIZE;
-  newBox.y = Math.round(newBox.y / GRID_SIZE) * GRID_SIZE;
-
-  return newBox;
-}
-
-function createOperator({
-  x,
-  y,
-  name,
-  fn,
-  outputOffsets,
-}: {
-  x: number;
-  y: number;
-  name?: string;
-  fn?: (b: any) => any;
-  outputOffsets?: { x: number; y: number }[];
-}): Operator {
-  let newOperator: Operator = createBox({ x, y }) as Operator;
-  newOperator.value = 1;
-  newOperator.outputOffsets = outputOffsets || [
-    {
-      x: GRID_SIZE,
-      y: 0,
-    },
-  ];
-
-  if (fn) {
-    newOperator.fn = fn;
-    let res = fn(1);
-    if (Array.isArray(res)) {
-      // create multiple outputOffets
-      // only if newOperator.outputOffsets is empty
-      if (newOperator.outputOffsets.length === 1) {
-        for (let i = 1; i < res.length; i++) {
-          newOperator.outputOffsets.push({
-            x: GRID_SIZE,
-            y: i * GRID_SIZE,
-          });
-        }
-      }
-    }
-    newOperator.name = name || fn.name;
-  } else {
-    newOperator.fn = (a) => a;
-    Object.defineProperty(newOperator.fn, "name", { value: "id" });
-    newOperator.name = "id";
-  }
-
-  return newOperator;
-}
-
 function handleDrag(event: MouseEvent): void {
   mouse = getMousePos(canvas, event);
   // logFixed(`${mouse.x}, ${mouse.y}`);
   if (!selectedEntity) {
+    // if left click and space pressed, pan
     if (event.buttons === 1 && spacePressed) {
       canvas.style.cursor = "grabbing";
       pan.x += event.movementX;
@@ -857,6 +788,10 @@ function handleDrag(event: MouseEvent): void {
       // draw();
     } else if (metaPressed) {
       // previewCoordinate = getClosestGrid(mouse.x, mouse.y);
+    }
+  } else if (altPressed) {
+    if (isBox(selectedEntity)) {
+      selectedEntity.value += Math.round(event.movementX / 4);
     }
   } else {
     selectedEntity.x = mouse.x - offset.x - GRID_SIZE / 2;
@@ -1030,6 +965,82 @@ function animateBoxLines() {
   requestAnimationFrame(animateLine);
 }
 
+function createBox({
+  x,
+  y,
+  value,
+  name,
+}: {
+  x: number;
+  y: number;
+  value?: number;
+  name?: string;
+}): Box {
+  let newBox: Box = {
+    name: name || "",
+    x,
+    y,
+    value: value || 1,
+    history: [
+      {
+        operator: "init",
+        value: value || 1,
+      },
+    ],
+  };
+  newBox.x = Math.round(newBox.x / GRID_SIZE) * GRID_SIZE;
+  newBox.y = Math.round(newBox.y / GRID_SIZE) * GRID_SIZE;
+
+  return newBox;
+}
+
+function createOperator({
+  x,
+  y,
+  name,
+  fn,
+  outputOffsets,
+}: {
+  x: number;
+  y: number;
+  name?: string;
+  fn?: (b: any) => any;
+  outputOffsets?: { x: number; y: number }[];
+}): Operator {
+  let newOperator: Operator = createBox({ x, y }) as Operator;
+  newOperator.value = 1;
+  newOperator.outputOffsets = outputOffsets || [
+    {
+      x: GRID_SIZE,
+      y: 0,
+    },
+  ];
+
+  if (fn) {
+    newOperator.fn = fn;
+    let res = fn(1);
+    if (Array.isArray(res)) {
+      // create multiple outputOffets
+      // only if newOperator.outputOffsets is empty
+      if (newOperator.outputOffsets.length === 1) {
+        for (let i = 1; i < res.length; i++) {
+          newOperator.outputOffsets.push({
+            x: GRID_SIZE,
+            y: i * GRID_SIZE,
+          });
+        }
+      }
+    }
+    newOperator.name = name || fn.name;
+  } else {
+    newOperator.fn = (a) => a;
+    Object.defineProperty(newOperator.fn, "name", { value: "id" });
+    newOperator.name = "id";
+  }
+
+  return newOperator;
+}
+
 // add a new box to an area coordinate
 // @dev round x and y to closest grid
 function addBoxToArea({
@@ -1102,6 +1113,12 @@ function init() {
         metaPressed = true;
         previewCoordinate = getClosestGrid(mouse.x, mouse.y);
       }
+    } else if (event.key === "Shift") {
+      shiftPressed = true;
+      canvas.style.cursor = "move";
+    } else if (event.key === "Alt") {
+      altPressed = true;
+      canvas.style.cursor = "ew-resize";
     }
   });
 
@@ -1112,6 +1129,9 @@ function init() {
     } else if (event.key === "Meta") {
       metaPressed = false;
       previewCoordinate = undefined;
+    } else if (event.key === "Shift") {
+      canvas.style.cursor = "default";
+      shiftPressed = false;
     }
   });
 
