@@ -517,8 +517,8 @@ function updateContextMenu(
     `;
   } else if (action === "new") {
     contextMenu.innerHTML = `
-      <div class="context-menu-item" data-action="create-value">Create Value</div>
-      <div class="context-menu-item" data-action="create-operator">Create Operator</div>
+      <div class="context-menu-item" data-action="create-value">+ Value (□)</div>
+      <div class="context-menu-item" data-action="create-operator">+ Operator (□-)</div>
     `;
   }
 }
