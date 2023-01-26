@@ -241,7 +241,7 @@ function draw() {
 
   // preview box (where it would be placed if dropped on mouseup)
   if (previewCoordinate) {
-    ctx.fillStyle = "#F1F5F9";
+    ctx.fillStyle = "rgba(241, 245, 249, 0.7)";
     fillRect(previewCoordinate.x, previewCoordinate.y, GRID_SIZE);
 
     // debug
@@ -832,6 +832,7 @@ function handleDrag(event: MouseEvent): void {
       }
     }
   } else {
+    canvas.style.cursor = "move";
     selectedEntity.x = mouse.x - offset.x - GRID_SIZE / 2;
     selectedEntity.y = mouse.y - offset.y - GRID_SIZE / 2;
 
@@ -1160,7 +1161,7 @@ function init() {
       }
     } else if (event.key === "Shift") {
       shiftPressed = true;
-      canvas.style.cursor = "move";
+      // canvas.style.cursor = "move";
     } else if (event.key === "Alt") {
       altPressed = true;
       canvas.style.cursor = "ew-resize";
@@ -1176,7 +1177,7 @@ function init() {
       metaPressed = false;
       previewCoordinate = undefined;
     } else if (event.key === "Shift") {
-      canvas.style.cursor = "default";
+      // canvas.style.cursor = "default";
       shiftPressed = false;
     } else if (event.key === "Alt") {
       canvas.style.cursor = "default";
@@ -1371,7 +1372,7 @@ function init() {
 
   addEntityToArea(
     createBox({
-      x: x - 50 * 0,
+      x: x - 50 * 1,
       y: y + -50 * 2,
       value: 15,
       name: "n",
