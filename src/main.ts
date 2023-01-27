@@ -172,6 +172,10 @@ function applyPan(x: number, y: number): { x: number; y: number } {
   return { x: x + pan.x, y: y + pan.y };
 }
 
+function reversePan(x: number, y: number): { x: number; y: number } {
+  return { x: x - pan.x, y: y - pan.y };
+}
+
 // wrap ctx.fillRect with pan
 function fillRect(x: number, y: number, size: number) {
   let { x: _x, y: _y } = applyPan(x, y);
@@ -488,6 +492,14 @@ function getMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
   };
 }
 
+function getAbsMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
+  var rect = canvas.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
 // function to check closest box Coordinate
 function getClosestArea(x: number, y: number): Area | undefined {
   // let coord = getClosestGrid(x, y);
@@ -526,11 +538,11 @@ function updateContextMenu(
 }
 
 function getCoordFromHtmlDivElement(element: HTMLDivElement): Coord {
-  let { x, y } = getClosestGrid(
+  let grid = getClosestGrid(
     parseInt(element.style.left),
     parseInt(element.style.top)
   );
-  return { x, y };
+  return reversePan(grid.x, grid.y); // handle pan
 }
 
 function createInput(property: "name" | "value") {
@@ -545,8 +557,8 @@ function createInput(property: "name" | "value") {
   }
   input.value = prop.toString();
   input.style.position = "absolute";
-  input.style.left = `${inspectedEntity.x}px`;
-  input.style.top = `${inspectedEntity.y}px`;
+  input.style.left = `${inspectedEntity.x + pan.x}px`; // handle pan
+  input.style.top = `${inspectedEntity.y + pan.y}px`; // handle pan
   input.style.width = `${GRID_SIZE}px`;
   input.style.height = `${GRID_SIZE}px`;
 
@@ -610,8 +622,8 @@ function createContextMenu() {
           // create input element
           let input = document.createElement("textarea");
           input.style.position = "absolute";
-          input.style.left = `${inspectedEntity.x}px`;
-          input.style.top = `${inspectedEntity.y}px`;
+          input.style.left = `${inspectedEntity.x + pan.x}px`; // handle pan
+          input.style.top = `${inspectedEntity.y + pan.y}px`; // handle pan
           input.style.width = `${GRID_SIZE * 3}px`;
           input.style.height = `${GRID_SIZE}px`;
           input.value = inspectedEntity.fn.toString();
@@ -721,8 +733,8 @@ canvas.addEventListener("contextmenu", function (event) {
   }
 
   contextMenu.style.display = "block";
-  contextMenu.style.left = `${mouse.x}px`;
-  contextMenu.style.top = `${mouse.y}px`;
+  contextMenu.style.left = `${mouse.x + pan.x}px`; // need absolute position
+  contextMenu.style.top = `${mouse.y + pan.y}px`; // need absolute position
 
   // existing area
   if (area) {
@@ -746,8 +758,6 @@ function handleMousedown(event: MouseEvent): void {
   if (event.button !== 0 || spacePressed) {
     return;
   }
-  // mouse = getMousePos(canvas, event);
-
   let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
   if (contextMenu && contextMenu.style.display !== "none") {
     hideContextMenu();
@@ -856,8 +866,6 @@ function handleDrop(): void {
   if (!selectedEntity) {
     return;
   }
-  // mouse = getMousePos(canvas, event);
-
   let startCoord: KeyCoordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
   let startArea = areas.get(startCoord)!;
 
