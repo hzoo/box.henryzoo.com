@@ -400,6 +400,8 @@ function draw() {
                 };
               }
             }
+          } else if (result == "") {
+            area.boxes = area.boxes.filter((b) => b !== box);
           } else {
             box.value = result;
           }
@@ -1241,36 +1243,6 @@ function init() {
     })
   );
 
-  // x = 400;
-  // y = 200;
-  // addEntityToArea({
-  //   x,
-  //   y,
-  //   name: "id",
-  //   fn: (b) => b,
-  // });
-  // addEntityToArea(createBox({ x, y, value: 16 }));
-  // addEntityToArea({
-  //   x: x + 50 * 1,
-  //   y: y + 50 * 0,
-  //   name: ">>2",
-  //   fn: (b) => b >> 2,
-  // });
-  // addEntityToArea({
-  //   x: x + 50 * 2,
-  //   y: y + 50 * 0,
-  //   name: "id",
-  //   fn: (b) => b,
-  //   outputOffsets: [{ x: -50, y: 100 }],
-  // });
-  // addEntityToArea({
-  //   x: x + 50 * 1,
-  //   y: y + 50 * 2,
-  //   name: "<<2",
-  //   fn: (b) => b << 2,
-  //   outputOffsets: [{ x: -50, y: -100 }],
-  // });
-
   // createLineOfBoxes({
   //   x: 50,
   //   y: 500,
@@ -1360,15 +1332,6 @@ function init() {
       outputOffsets: [{ x: 50 * 2, y: -50 * 2 }],
     })
   );
-  // addEntityToArea(
-  //   createOperator({
-  //     x: x + 50 * 2,
-  //     y: y + 50 * 6,
-  //     name: "id",
-  //     fn: (a) => a,
-  //     outputOffsets: [{ x: 50 * 2, y: -50 * 4 }],
-  //   })
-  // );
 
   addEntityToArea(
     createBox({
@@ -1421,6 +1384,51 @@ function init() {
         }
         return n;
       },
+    })
+  );
+
+  x = 400;
+  y = 450;
+  addEntityToArea(
+    createOperator({
+      x,
+      y,
+      name: "is <4",
+      fn: (a) => a < 4,
+      outputOffsets: [
+        { x: 50 * 1, y: 50 * 0 },
+        { x: 50 * -1, y: 50 * 0 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 1,
+      y,
+      name: "clone",
+      fn: (a) => [a, a],
+      outputOffsets: [
+        { x: 50 * 1, y: 50 * -2 },
+        { x: 50 * 1, y: 50 * 1 },
+      ],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 2,
+      y: y + 50 * -2,
+      name: "+1",
+      fn: (a) => a + 1,
+      outputOffsets: [{ x: 50 * -2, y: 50 * 2 }],
+    })
+  );
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * -1,
+      y: y + 50 * 0,
+      name: "trash",
+      fn: (a) => "",
+      outputOffsets: [{ x: 50 * 0, y: 50 * 0 }],
     })
   );
 
