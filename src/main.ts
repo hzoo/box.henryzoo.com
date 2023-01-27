@@ -990,7 +990,13 @@ function animateBoxLines() {
   let animationDuration = 4000;
   let startTime = performance.now();
   function animateLine() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(
+      (-canvas.width / 2) * (1 / zoom),
+      (-canvas.height / 2) * (1 / zoom),
+      canvas.width * 2 * (1 / zoom),
+      canvas.height * 2 * (1 / zoom)
+    );
 
     let time = performance.now();
     let progress = (time - startTime) / animationDuration;
@@ -1153,10 +1159,33 @@ function addEntityToArea(entity: Box | Operator) {
 let double = (b: number) => b * 2;
 let clone = (b: number) => [b, b] as [number, number];
 
+let zoom = 1; // initial zoom level
+let minZoom = 0.5; // minimum zoom level
+let maxZoom = 3; // maximum zoom level
+
 function init() {
   canvas.addEventListener("mousedown", handleMousedown);
   canvas.addEventListener("mousemove", handleDrag);
   canvas.addEventListener("mouseup", handleDrop);
+
+  canvas.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    let delta = e.deltaY;
+    if (delta > 0) {
+      if (zoom > minZoom) {
+        zoom -= 0.1; // zoom out
+      }
+    } else {
+      if (zoom < maxZoom) {
+        zoom += 0.1; // zoom in
+      }
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset transformation matrix
+    ctx.translate(mouse.x, mouse.y); // move the origin to the mouse position
+    ctx.scale(zoom, zoom); // apply new zoom level
+    ctx.translate(-mouse.x, -mouse.y); // move the origin back to the top left
+    draw(); // redraw the canvas
+  });
 
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
