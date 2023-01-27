@@ -517,7 +517,7 @@ function updateContextMenu(
     `;
   } else if (action === "new") {
     contextMenu.innerHTML = `
-      <div class="context-menu-item" data-action="create-value">+ Value (□)</div>
+      <div class="context-menu-item" data-action="create-value">+  Value (□)</div>
       <div class="context-menu-item" data-action="create-operator">+ Operator (□-)</div>
     `;
   }
@@ -849,7 +849,7 @@ function handleDrag(event: MouseEvent): void {
   }
 }
 
-function handleDrop(event: MouseEvent): void {
+function handleDrop(): void {
   canvas.style.cursor = "default";
   if (!selectedEntity) {
     return;
@@ -1117,7 +1117,7 @@ function createOperator({
 }
 
 // add a box or operator to an area coordinate
-function addEntityToArea(entity: Box | Operator, key?: KeyCoordinates) {
+function addEntityToArea(entity: Box | Operator) {
   let area = getClosestArea(entity.x, entity.y);
   if (area) {
     if (isOperator(entity)) {
@@ -1313,7 +1313,7 @@ function init() {
       x: x + 50 * 2,
       y,
       name: "FizzBuzz",
-      fn: (a) => "FizzBuzz",
+      fn: () => "FizzBuzz",
       outputOffsets: [{ x: 50 * 2, y: 50 * 2 }],
     })
   );
@@ -1334,7 +1334,7 @@ function init() {
       x: x + 50 * 2,
       y: y + 50 * 2,
       name: "Fizz",
-      fn: (a) => "Fizz",
+      fn: () => "Fizz",
       outputOffsets: [{ x: 50 * 2, y: 0 }],
     })
   );
@@ -1356,7 +1356,7 @@ function init() {
       x: x + 50 * 2,
       y: y + 50 * 4,
       name: "Buzz",
-      fn: (a) => "Buzz",
+      fn: () => "Buzz",
       outputOffsets: [{ x: 50 * 2, y: -50 * 2 }],
     })
   );
