@@ -1435,7 +1435,7 @@ function init() {
       x: x + 50 * -1,
       y: y + 50 * 0,
       name: "trash",
-      fn: (a) => "",
+      fn: () => "",
       outputOffsets: [{ x: 50 * 0, y: 50 * 0 }],
     })
   );
