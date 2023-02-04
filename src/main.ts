@@ -127,6 +127,27 @@ function logFixed(text: string) {
   fixedCanvasLog = text;
 }
 
+function drawLogs() {
+  ctx.textAlign = "left";
+  // draw logs
+  for (let i = 0; i < canvasLogs.length; i++) {
+    fillText(canvasLogs[i], mouse.x + 5, mouse.y - 30 - i * 20);
+
+    let textWidth = ctx.measureText(canvasLogs[i]).width;
+    strokeRect(
+      mouse.x,
+      mouse.y - (canvasLogs.length + 1) * 20 - 8,
+      textWidth + 10,
+      (canvasLogs.length + 1) * 20 + 5
+    );
+  }
+  // fixedCanvasLog;
+  if (fixedCanvasLog) {
+    fillText(fixedCanvasLog, mouse.x + 5, mouse.y - 12);
+  }
+  ctx.textAlign = "center";
+}
+
 function _isEmptyArea(area: Area): boolean {
   return area.boxes.length === 0 && area.operatorBox === undefined;
 }
@@ -228,11 +249,7 @@ function drawBoxStack(x: number, y: number, length: number) {
   fillText(`${length}`, x + GRID_SIZE + 7, y + GRID_SIZE + 9);
 }
 
-function draw() {
-  // clear canvas in animation frame
-  // ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = "black";
-
+function drawGrid() {
   let startX = -pan.x + (pan.x % GRID_SIZE);
   let startY = -pan.y + (pan.y % GRID_SIZE);
   let endX = startX + canvas.width;
@@ -242,7 +259,9 @@ function draw() {
       fillRect(i, j, 2);
     }
   }
+}
 
+function drawPreviewBox() {
   // preview box (where it would be placed if dropped on mouseup)
   if (previewCoordinate) {
     ctx.fillStyle = "rgba(241, 245, 249, 0.7)";
@@ -256,27 +275,19 @@ function draw() {
     //   previewCoordinate.y + GRID_SIZE / 2
     // );
   }
+}
 
-  // draw operator line
-  if (
-    selectedEntity &&
-    selectedEntity.new &&
-    isOperator(selectedEntity) &&
-    previewCoordinate
-  ) {
-    drawLine(
-      {
-        x: selectedEntity.startX + GRID_SIZE / 2,
-        y: selectedEntity.startY + GRID_SIZE / 2,
-      },
-      {
-        x: previewCoordinate.x + GRID_SIZE / 2,
-        y: previewCoordinate.y + GRID_SIZE / 2,
-      }
-    );
-  }
+function draw() {
+  // clear canvas in animation frame
+  // ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "black";
+
+  drawGrid();
+  drawPreviewBox();
 
   let operatorAreas = [];
+  let boxesOnlyAreas = [];
+
   // draw not moving boxes first
   for (let area of areas.values()) {
     let { operatorBox, boxes } = area;
@@ -285,13 +296,10 @@ function draw() {
       operatorAreas.push(area);
       continue;
     }
+    boxesOnlyAreas.push(area);
 
     for (let box of boxes) {
       drawBox(box);
-    }
-
-    if (boxes.length > 1) {
-      drawBoxStack(boxes[0].x, boxes[0].y, boxes.length);
     }
   }
 
@@ -332,8 +340,17 @@ function draw() {
       fillText(`${operatorBox.name}`, x, y);
     }
 
-    // draw each moving box first
+    // draw each moving box last
     for (let box of boxes) {
+      // don't draw if selectedBox
+      if (
+        selectedEntity &&
+        selectedEntity.x == box.x &&
+        selectedEntity.y == box.y
+      ) {
+        continue;
+      }
+
       if (!box.updated) {
         // change box value
         if (box.x == operatorBox.x && box.y == operatorBox.y && !box.skipEval) {
@@ -447,39 +464,22 @@ function draw() {
         box.updated = false;
       }
 
-      let distance = Math.sqrt(
-        Math.pow(operatorBox.x - box.x, 2) + Math.pow(operatorBox.y - box.y, 2)
-      );
-      let maxDistance = Math.sqrt(
-        Math.pow(operatorBox.outputOffsets[0].x, 2) +
-          Math.pow(operatorBox.outputOffsets[0].y, 2)
-      );
-      let colorValue = Math.max(1 - distance / maxDistance, 0.33);
-      let color = `rgba(255, 0, 255, ${colorValue})`;
-      ctx.strokeStyle = color;
-
       drawBox(box);
     }
   }
 
-  ctx.textAlign = "left";
-  // draw logs
-  for (let i = 0; i < canvasLogs.length; i++) {
-    fillText(canvasLogs[i], mouse.x + 5, mouse.y - 30 - i * 20);
+  // draw length of box stacks
+  for (let { boxes } of boxesOnlyAreas) {
+    if (boxes.length > 1) {
+      drawBoxStack(boxes[0].x, boxes[0].y, boxes.length);
+    }
+  }
 
-    let textWidth = ctx.measureText(canvasLogs[i]).width;
-    strokeRect(
-      mouse.x,
-      mouse.y - (canvasLogs.length + 1) * 20 - 8,
-      textWidth + 10,
-      (canvasLogs.length + 1) * 20 + 5
-    );
+  if (selectedEntity) {
+    drawBox(selectedEntity);
   }
-  // fixedCanvasLog;
-  if (fixedCanvasLog) {
-    fillText(fixedCanvasLog, mouse.x + 5, mouse.y - 12);
-  }
-  ctx.textAlign = "center";
+
+  drawLogs();
 }
 
 // get mouse position
@@ -531,7 +531,7 @@ function updateContextMenu(
     `;
   } else if (action === "new") {
     contextMenu.innerHTML = `
-      <div class="context-menu-item" data-action="create-value">+  Value (□)</div>
+      <div class="context-menu-item" data-action="create-value">+ Value (□)</div>
       <div class="context-menu-item" data-action="create-operator">+ Operator (□-)</div>
     `;
   }
@@ -600,10 +600,6 @@ function createContextMenu() {
   // menu needs to show up over the canvas correctly
   let contextMenu = document.createElement("div");
   contextMenu.classList.add("context-menu");
-
-  // contextMenu.innerHTML = `
-  //     <div class="context-menu-item" data-action="delete">Delete</div>
-  //   `;
   contextMenu.style.position = "absolute";
   contextMenu.style.border = "1px solid black";
   contextMenu.style.backgroundColor = "white";
@@ -719,7 +715,7 @@ function hideContextMenu() {
   }
 }
 
-canvas.addEventListener("contextmenu", function (event) {
+function handleRightClick(event: MouseEvent) {
   // Prevent the default context menu from appearing
   event.preventDefault();
 
@@ -750,7 +746,7 @@ canvas.addEventListener("contextmenu", function (event) {
   } else {
     updateContextMenu("new");
   }
-});
+}
 
 // box selection or new box
 function handleMousedown(event: MouseEvent): void {
@@ -802,7 +798,6 @@ function handleMousedown(event: MouseEvent): void {
           y: mouse.y - GRID_SIZE / 2,
         })
       );
-      console.log(newEntity);
     } else {
       return;
     }
@@ -855,6 +850,7 @@ function handleDrag(event: MouseEvent): void {
       (selectedEntity.new && isOperator(selectedEntity)) ||
       !selectedEntity.new
     ) {
+      console.log("preview");
       previewCoordinate = getClosestGrid(mouse.x, mouse.y);
     }
     // draw();
@@ -1000,45 +996,46 @@ function animateBoxLines() {
     }
 
     for (let { operatorBox } of areas.values()) {
-      if (selectedEntity) {
-        if (
-          operatorBox &&
-          operatorBox.x === selectedEntity.startX &&
-          operatorBox.y === selectedEntity.startY
-        ) {
-          continue;
-        }
-      }
-
       if (operatorBox) {
-        //  draw lines to output locations
-        if (operatorBox.outputOffsets) {
-          for (let i = 0; i < operatorBox.outputOffsets.length; i++) {
-            let boxOffset = operatorBox.outputOffsets[i];
-            drawOperatorLine(operatorBox, {
-              boxOffset,
-              dotSize,
-              dotSpacing,
-              progress,
-            });
-          }
+        for (let i = 0; i < operatorBox.outputOffsets.length; i++) {
+          let boxOffset = operatorBox.outputOffsets[i];
 
+          // new operator line
           if (
-            operatorBox.outputOffsets.length == 1 &&
-            operatorBox.name.startsWith("is")
+            previewCoordinate &&
+            selectedEntity?.new &&
+            operatorBox.x == selectedEntity.startX &&
+            operatorBox.y == selectedEntity.startY
           ) {
-            let boxOffset = {
-              x: GRID_SIZE,
-              y: GRID_SIZE,
+            boxOffset = {
+              x: previewCoordinate.x - operatorBox.x,
+              y: previewCoordinate.y - operatorBox.y,
             };
-
-            drawOperatorLine(operatorBox, {
-              boxOffset,
-              dotSize,
-              dotSpacing,
-              progress,
-            });
           }
+
+          drawOperatorLine(operatorBox, {
+            boxOffset,
+            dotSize,
+            dotSpacing,
+            progress,
+          });
+        }
+
+        if (
+          operatorBox.outputOffsets.length == 1 &&
+          operatorBox.name.startsWith("is")
+        ) {
+          let boxOffset = {
+            x: GRID_SIZE,
+            y: GRID_SIZE,
+          };
+
+          drawOperatorLine(operatorBox, {
+            boxOffset,
+            dotSize,
+            dotSpacing,
+            progress,
+          });
         }
       }
     }
@@ -1151,9 +1148,9 @@ function addEntityToArea(entity: Box | Operator) {
 }
 
 let double = (b: number) => b * 2;
-let clone = (b: number) => [b, b] as [number, number];
 
 function init() {
+  canvas.addEventListener("contextmenu", handleRightClick);
   canvas.addEventListener("mousedown", handleMousedown);
   canvas.addEventListener("mousemove", handleDrag);
   canvas.addEventListener("mouseup", handleDrop);
@@ -1213,7 +1210,8 @@ function init() {
     createOperator({
       x: x + 50,
       y: y + 100,
-      fn: clone,
+      name: "clone",
+      fn: (a) => [a, a],
     })
   );
 
@@ -1434,7 +1432,7 @@ function init() {
     createOperator({
       x: x + 50 * -1,
       y: y + 50 * 0,
-      name: "trash",
+      name: "trash🗑️",
       fn: () => "",
       outputOffsets: [{ x: 50 * 0, y: 50 * 0 }],
     })
