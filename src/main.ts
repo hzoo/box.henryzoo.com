@@ -1229,6 +1229,15 @@ function init() {
   let y = 0;
 
   addEntityToArea(createBox({ x: 500, y: 50, name: "drawSpeed", value: 1 }));
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 12,
+      y: y + 50,
+      name: "slow",
+      fn: (a) => ({ value: a, speed: drawSpeed / 3 }),
+      outputOffsets: [{ x: -50 * 1, y: 0 }],
+    })
+  );
 
   x = 50;
   y = 100;
@@ -1380,54 +1389,9 @@ function init() {
       name: "n",
     })
   );
-  addEntityToArea(
-    createOperator({
-      x: x + 50 * 0,
-      y: y + -50 * 2,
-      name: "gen",
-      fn: function gen(n): number[] {
-        if (n === 0) {
-          return [];
-        } else if (n === 1) {
-          return [0, n];
-        } else {
-          return [n - 1, gen(n - 1)[1] + 1];
-        }
-      },
-      outputOffsets: [
-        { x: 50, y: 0 },
-        { x: 0, y: 50 * 2 },
-      ],
-    })
-  );
-  addEntityToArea(
-    createOperator({
-      x: x + 50,
-      y: y + -50 * 2,
-      name: "slow",
-      fn: (a) => ({ value: a, speed: drawSpeed / 3 }),
-      outputOffsets: [{ x: -50 * 1, y: 0 }],
-    })
-  );
 
-  addEntityToArea(
-    createOperator({
-      x: x + 50 * 5,
-      y: y + -50 * 4,
-      name: "0-n",
-      fn: (a) => {
-        // gen numbers from 0 to a
-        const n = [];
-        for (let i = 0; i <= a; i++) {
-          n.push(i);
-        }
-        return n;
-      },
-    })
-  );
-
-  x = 400;
-  y = 450;
+  x = 300;
+  y = 250;
   addEntityToArea(
     createOperator({
       x,
