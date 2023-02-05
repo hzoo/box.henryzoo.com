@@ -437,31 +437,33 @@ function draw() {
         }
 
         box.skipEval = undefined;
-        let end = box.end!;
+        let end = box.end;
 
-        // only if not already at the end
-        if (box.x !== end.x) {
-          box.x += (end.x - box.x) * 0.05 * (box.speed || drawSpeed);
-        }
-        if (box.y !== end.y) {
-          box.y += (end.y - box.y) * 0.05 * (box.speed || drawSpeed);
-        }
+        if (end) {
+          // only if not already at the end
+          if (box.x !== end.x) {
+            box.x += (end.x - box.x) * 0.05 * (box.speed || drawSpeed);
+          }
+          if (box.y !== end.y) {
+            box.y += (end.y - box.y) * 0.05 * (box.speed || drawSpeed);
+          }
 
-        // account for negative differnces using math.abs
-        if (
-          (Math.abs(end.x - box.x) < 1 && box.x !== end.x) ||
-          (Math.abs(end.y - box.y) < 1 && box.y !== end.y)
-        ) {
-          box.updated = true;
-          box.x = end.x;
-          box.y = end.y;
-          box.end = undefined;
-          box.speed = undefined;
+          // account for negative differnces using math.abs
+          if (
+            (Math.abs(end.x - box.x) < 1 && box.x !== end.x) ||
+            (Math.abs(end.y - box.y) < 1 && box.y !== end.y)
+          ) {
+            box.updated = true;
+            box.x = end.x;
+            box.y = end.y;
+            box.end = undefined;
+            box.speed = undefined;
 
-          // remove box from area
-          area.boxes = area.boxes.filter((b) => b !== box);
-          // add to new area
-          addEntityToArea(box);
+            // remove box from area
+            area.boxes = area.boxes.filter((b) => b !== box);
+            // add to new area
+            addEntityToArea(box);
+          }
         }
       } else {
         box.updated = false;
@@ -873,7 +875,6 @@ function handleDrag(event: MouseEvent): void {
       (selectedEntity.new && isOperator(selectedEntity)) ||
       !selectedEntity.new
     ) {
-      console.log("hi");
       previewCoordinate = getClosestGrid(mouse.x, mouse.y);
     }
     // draw();
