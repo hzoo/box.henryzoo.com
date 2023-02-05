@@ -296,10 +296,13 @@ function draw() {
       operatorAreas.push(area);
       continue;
     }
-    boxesOnlyAreas.push(area);
 
     for (let box of boxes) {
       drawBox(box);
+    }
+
+    if (boxes.length > 1) {
+      boxesOnlyAreas.push(area);
     }
   }
 
@@ -468,14 +471,15 @@ function draw() {
     }
   }
 
-  // draw length of box stacks
+  // draw length of box stacks on top
   for (let { boxes } of boxesOnlyAreas) {
     if (boxes.length > 1) {
       drawBoxStack(boxes[0].x, boxes[0].y, boxes.length);
     }
   }
 
-  if (selectedEntity) {
+  // draw selected box last
+  if (selectedEntity && !isOperator(selectedEntity)) {
     drawBox(selectedEntity);
   }
 
@@ -748,6 +752,15 @@ function handleRightClick(event: MouseEvent) {
   }
 }
 
+function cloneEntity(entity: Selection): Selection {
+  let clone = JSON.parse(JSON.stringify(entity));
+  if (isOperator(entity)) {
+    // copy the function in entity.fn
+    clone.fn = entity.fn;
+  }
+  return clone;
+}
+
 // box selection or new box
 function handleMousedown(event: MouseEvent): void {
   // if right click or space pressed, return
@@ -774,12 +787,22 @@ function handleMousedown(event: MouseEvent): void {
       return;
     }
 
+    offset.x = mouse.x - selectedEntity.x - GRID_SIZE / 2;
+    offset.y = mouse.y - selectedEntity.y - GRID_SIZE / 2;
+
+    // clone selected entity
+    if (event.metaKey) {
+      selectedEntity = cloneEntity(selectedEntity);
+      selectedEntity.x *= 100; // TODO: hack to make sure it's not in the same area
+      selectedEntity.y *= 100;
+      addEntityToArea(
+        selectedEntity,
+        `${selectedEntity.x},${selectedEntity.y}`
+      );
+    }
+
     selectedEntity.startX = selectedEntity.x;
     selectedEntity.startY = selectedEntity.y;
-    if (selectedEntity) {
-      offset.x = mouse.x - selectedEntity.x - GRID_SIZE / 2;
-      offset.y = mouse.y - selectedEntity.y - GRID_SIZE / 2;
-    }
   } else {
     // new area
     let newEntity;
@@ -850,7 +873,7 @@ function handleDrag(event: MouseEvent): void {
       (selectedEntity.new && isOperator(selectedEntity)) ||
       !selectedEntity.new
     ) {
-      console.log("preview");
+      console.log("hi");
       previewCoordinate = getClosestGrid(mouse.x, mouse.y);
     }
     // draw();
@@ -1124,7 +1147,10 @@ function createOperator({
 }
 
 // add a box or operator to an area coordinate
-function addEntityToArea(entity: Box | Operator) {
+function addEntityToArea(
+  entity: Box | Operator,
+  keyCoordinates?: KeyCoordinates
+) {
   let area = getClosestArea(entity.x, entity.y);
   if (area) {
     if (isOperator(entity)) {
@@ -1133,13 +1159,17 @@ function addEntityToArea(entity: Box | Operator) {
       area.boxes.push(entity);
     }
   } else {
+    let coord: KeyCoordinates = `${entity.x},${entity.y}`;
+    if (keyCoordinates) {
+      coord = keyCoordinates;
+    }
     if (isOperator(entity)) {
-      areas.set(`${entity.x},${entity.y}`, {
+      areas.set(coord, {
         boxes: [],
         operatorBox: entity,
       });
     } else {
-      areas.set(`${entity.x},${entity.y}`, {
+      areas.set(coord, {
         boxes: [entity],
       });
     }

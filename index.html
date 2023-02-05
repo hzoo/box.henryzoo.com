@@ -24,9 +24,25 @@
       .context-menu-item:hover {
         background: #eee;
       }
+
+      .key-hints {
+        z-index: 2;
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 5px;
+      }
     </style>
   </head>
   <body>
     <script type="module" src="/src/main.ts"></script>
+    <div class="key-hints">
+      <div><kbd>cmd</kbd> click: new val</div>
+      <div><kbd>shift</kbd> + drag: new fn</div>
+      <div><kbd>cmd</kbd> + drag: clone</div>
+      <div><kbd>space</kbd> + drag: pan</div>
+    </div>
   </body>
 </html>
