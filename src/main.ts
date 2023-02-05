@@ -266,6 +266,7 @@ function drawPreviewBox() {
   if (previewCoordinate) {
     ctx.fillStyle = "rgba(241, 245, 249, 0.7)";
     fillRect(previewCoordinate.x, previewCoordinate.y, GRID_SIZE);
+    ctx.fillStyle = "black";
 
     // debug
     // ctx.fillStyle = "black";
@@ -283,7 +284,6 @@ function draw() {
   ctx.strokeStyle = "black";
 
   drawGrid();
-  drawPreviewBox();
 
   let operatorAreas = [];
   let boxesOnlyAreas = [];
@@ -479,6 +479,8 @@ function draw() {
       drawBoxStack(boxes[0].x, boxes[0].y, boxes.length);
     }
   }
+
+  drawPreviewBox();
 
   // draw selected box last
   if (selectedEntity && !isOperator(selectedEntity)) {
