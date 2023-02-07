@@ -13,7 +13,7 @@ type Coord = {
 
 type BoxHistory = {
   value: number;
-  operator: string; // fn name
+  operatorName: string; // name of operator that caused this change
 };
 
 // fn already has a "value" and a name?
@@ -405,7 +405,7 @@ function draw() {
               value: result[i],
               history: [
                 {
-                  operator: operatorBox.name,
+                  operatorName: operatorBox.name,
                   value: operatorBox.value,
                 },
               ],
@@ -437,7 +437,7 @@ function draw() {
         }
 
         box.history.push({
-          operator: operatorBox.name,
+          operatorName: operatorBox.name,
           value: box.value,
         });
       }
@@ -1091,7 +1091,7 @@ function createBox({
     value: value || 1,
     history: [
       {
-        operator: "init",
+        operatorName: "init",
         value: value || 1,
       },
     ],
