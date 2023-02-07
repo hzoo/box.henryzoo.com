@@ -1,5 +1,9 @@
 export {};
 
+type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};
+
 type KeyCoordinates = `${number},${number}`;
 
 type Coord = {
@@ -9,16 +13,17 @@ type Coord = {
 
 type BoxHistory = {
   value: number;
-  operator: string;
+  operator: string; // fn name
 };
 
+// fn already has a "value" and a name?
+// maybe value should be a getter?
 type Box = Coord & {
-  name: string;
-  history: BoxHistory[];
-  value: number;
-  updated?: boolean; // already operated on in loop
+  name: string; // label
+  value: number; // doesn't have to be a number actually
   end?: Coord; // where to animate towards
-  skipEval?: boolean; // skip evaluation in loop
+  history: BoxHistory[];
+  updated?: boolean; // already operated on in loop
   speed?: number; // how fast to animate
 };
 
@@ -32,11 +37,13 @@ type Area = {
   boxes: Box[];
 };
 
-type Selection = Operator & {
+type _Selection = Operator & {
   new?: boolean;
   startX: number;
   startY: number;
 };
+
+type Selection = Prettify<_Selection>;
 
 function isOperator(entity: Box | Operator): entity is Operator {
   return (entity as Operator).fn !== undefined;
@@ -354,116 +361,112 @@ function draw() {
         continue;
       }
 
-      if (!box.updated) {
-        // change box value
-        if (box.x == operatorBox.x && box.y == operatorBox.y && !box.skipEval) {
-          // animate the box towards the end of the operator box
-          box.end = {
-            x: operatorBox.x + operatorBox.outputOffsets[0].x,
-            y: operatorBox.y + operatorBox.outputOffsets[0].y,
-          };
+      // change box value
+      if (!box.updated && box.x == operatorBox.x && box.y == operatorBox.y) {
+        // animate the box towards the end of the operator box
+        box.end = {
+          x: operatorBox.x + operatorBox.outputOffsets[0].x,
+          y: operatorBox.y + operatorBox.outputOffsets[0].y,
+        };
 
-          let result = operatorBox.fn(box.value);
+        let result = operatorBox.fn(box.value);
 
-          if (Array.isArray(result)) {
-            if (result[0] === undefined) {
-              area.boxes = area.boxes.filter((b) => b !== box);
-            } else {
-              box.value = result[0];
-            }
-
-            // create a new box for each value in the array
-            for (let i = 1; i < result.length; i++) {
-              if (result[i] === undefined) continue;
-
-              let end = {
-                x: operatorBox.outputOffsets[0].x,
-                y: operatorBox.outputOffsets[0].y + i * GRID_SIZE,
-              };
-
-              if (operatorBox.outputOffsets[i]) {
-                end.x = operatorBox.outputOffsets[i].x;
-                end.y = operatorBox.outputOffsets[i].y;
-              }
-
-              // add new box
-              area.boxes.push({
-                name: "",
-                skipEval: true,
-                x: box.x,
-                y: box.y,
-                end: {
-                  x: operatorBox.x + end.x,
-                  y: operatorBox.y + end.y,
-                },
-                value: result[i],
-                history: [
-                  {
-                    operator: operatorBox.name,
-                    value: operatorBox.value,
-                  },
-                ],
-              });
-            }
-          } else if (result?.constructor === Object) {
-            if (result?.name) box.name = result.name;
-            if (result?.value) box.value = result.value;
-            if (result?.end) box.end = result.end;
-            if (result?.speed) box.speed = result.speed;
-          } else if (operatorBox.name.startsWith("is")) {
-            // move down
-            if (result == false) {
-              box.end = {
-                x: operatorBox.x + operatorBox.outputOffsets[0].x,
-                y: operatorBox.y + operatorBox.outputOffsets[0].y + GRID_SIZE,
-              };
-              if (operatorBox.outputOffsets[1]) {
-                box.end = {
-                  x: operatorBox.x + operatorBox.outputOffsets[1].x,
-                  y: operatorBox.y + operatorBox.outputOffsets[1].y,
-                };
-              }
-            }
-          } else if (result == "") {
+        if (Array.isArray(result)) {
+          if (result[0] === undefined) {
             area.boxes = area.boxes.filter((b) => b !== box);
           } else {
-            box.value = result;
+            box.value = result[0];
           }
 
-          box.history.push({
-            operator: operatorBox.name,
-            value: box.value,
-          });
+          // create a new box for each value in the array
+          for (let i = 1; i < result.length; i++) {
+            if (result[i] === undefined) continue;
+
+            let end = {
+              x: operatorBox.outputOffsets[0].x,
+              y: operatorBox.outputOffsets[0].y + i * GRID_SIZE,
+            };
+
+            if (operatorBox.outputOffsets[i]) {
+              end.x = operatorBox.outputOffsets[i].x;
+              end.y = operatorBox.outputOffsets[i].y;
+            }
+
+            // add new box
+            area.boxes.push({
+              name: "",
+              updated: true,
+              x: box.x,
+              y: box.y,
+              end: {
+                x: operatorBox.x + end.x,
+                y: operatorBox.y + end.y,
+              },
+              value: result[i],
+              history: [
+                {
+                  operator: operatorBox.name,
+                  value: operatorBox.value,
+                },
+              ],
+            });
+          }
+        } else if (result?.constructor === Object) {
+          if (result?.name) box.name = result.name;
+          if (result?.value) box.value = result.value;
+          if (result?.end) box.end = result.end;
+          if (result?.speed) box.speed = result.speed;
+        } else if (operatorBox.name.startsWith("is")) {
+          // move down
+          if (result == false) {
+            box.end = {
+              x: operatorBox.x + operatorBox.outputOffsets[0].x,
+              y: operatorBox.y + operatorBox.outputOffsets[0].y + GRID_SIZE,
+            };
+            if (operatorBox.outputOffsets[1]) {
+              box.end = {
+                x: operatorBox.x + operatorBox.outputOffsets[1].x,
+                y: operatorBox.y + operatorBox.outputOffsets[1].y,
+              };
+            }
+          }
+        } else if (result == "") {
+          area.boxes = area.boxes.filter((b) => b !== box);
+        } else {
+          box.value = result;
         }
 
-        box.skipEval = undefined;
-        let end = box.end;
+        box.history.push({
+          operator: operatorBox.name,
+          value: box.value,
+        });
+      }
 
-        if (end) {
-          // only if not already at the end
-          if (box.x !== end.x) {
-            box.x += (end.x - box.x) * 0.05 * (box.speed || drawSpeed);
-          }
-          if (box.y !== end.y) {
-            box.y += (end.y - box.y) * 0.05 * (box.speed || drawSpeed);
-          }
+      let end = box.end;
+      if (end) {
+        // only if not already at the end
+        if (box.x !== end.x) {
+          box.x += (end.x - box.x) * 0.05 * (box.speed || drawSpeed);
+        }
+        if (box.y !== end.y) {
+          box.y += (end.y - box.y) * 0.05 * (box.speed || drawSpeed);
+        }
 
-          // account for negative differnces using math.abs
-          if (
-            (Math.abs(end.x - box.x) < 1 && box.x !== end.x) ||
-            (Math.abs(end.y - box.y) < 1 && box.y !== end.y)
-          ) {
-            box.updated = true;
-            box.x = end.x;
-            box.y = end.y;
-            box.end = undefined;
-            box.speed = undefined;
+        // account for negative differnces using math.abs
+        if (
+          (Math.abs(end.x - box.x) < 1 && box.x !== end.x) ||
+          (Math.abs(end.y - box.y) < 1 && box.y !== end.y)
+        ) {
+          box.updated = true;
+          box.x = end.x;
+          box.y = end.y;
+          box.end = undefined;
+          box.speed = undefined;
 
-            // remove box from area
-            area.boxes = area.boxes.filter((b) => b !== box);
-            // add to new area
-            addEntityToArea(box);
-          }
+          // remove box from area
+          area.boxes = area.boxes.filter((b) => b !== box);
+          // add to new area
+          addEntityToArea(box);
         }
       } else {
         box.updated = false;
@@ -690,9 +693,7 @@ function createContextMenu() {
           if (isOperator(inspectedEntity)) {
             area.operatorBox = undefined;
           } else {
-            area.boxes = area.boxes.filter(
-              (box) => box !== inspectedEntity
-            ) as Selection[];
+            area.boxes = area.boxes.filter((box) => box !== inspectedEntity);
           }
 
           let coord: KeyCoordinates = `${inspectedEntity.x},${inspectedEntity.y}`;
