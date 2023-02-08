@@ -24,9 +24,14 @@
 - types? would be interesting to reject (send back to old pos + color) a value drop on operator if doesn't fit type (string when it expects a number etc), could use TS parser or runtime check + throw error
 - fn just generates a lot of values
   - simulate mousemove/mousedown as creating inputs? one could have the code itself as series of boxes
-- [ ] hover over boxes to view underneath, or fan out animation?
 - how to handle function composition, naming, scope, variables?
 - maybe each return statement is it's own output location? Or if nothing is returned, return the value to another location.
+
+## todo
+
+- [ ] hover over boxes to view stack underneath, or fan out animation?
+- [ ] fn abstraction (nested canvas?)
+- [ ] easy way to copy paste a layout for demo or save to disk?
 
 ## metaphors
 

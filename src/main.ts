@@ -101,10 +101,6 @@ let inspectedEntity: Operator = {
 };
 // where the preview box would be placed if dropped on mouseup, snapped to grid
 let previewCoordinate: Coord | undefined = undefined;
-let offset: Coord = {
-  x: 0,
-  y: 0,
-};
 let spacePressed = false;
 let metaPressed = false;
 let shiftPressed = false;
@@ -792,9 +788,6 @@ function handleMousedown(event: MouseEvent): void {
       return;
     }
 
-    offset.x = mouse.x - selectedEntity.x - GRID_SIZE / 2;
-    offset.y = mouse.y - selectedEntity.y - GRID_SIZE / 2;
-
     // clone selected entity
     if (event.metaKey) {
       selectedEntity = cloneEntity(selectedEntity);
@@ -837,9 +830,6 @@ function handleMousedown(event: MouseEvent): void {
       new: true,
     } as Selection;
 
-    offset.x = 0;
-    offset.y = 0;
-
     // draw();
   }
 }
@@ -868,8 +858,8 @@ function handleDrag(event: MouseEvent): void {
     }
   } else {
     canvas.style.cursor = "move";
-    selectedEntity.x = mouse.x - offset.x - GRID_SIZE / 2;
-    selectedEntity.y = mouse.y - offset.y - GRID_SIZE / 2;
+    selectedEntity.x += event.movementX;
+    selectedEntity.y += event.movementY;
 
     // set closest grid as "preview"
     // only when creating new operators
