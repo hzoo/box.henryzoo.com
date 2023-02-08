@@ -75,9 +75,10 @@ const observer = new ResizeObserver((_) => {
 });
 observer.observe(canvas);
 
-let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 let GRID_SIZE = 50;
 let drawSpeed = 1;
+
+let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 ctx.textAlign = "center";
 ctx.textBaseline = "middle";
 ctx.font = `${GRID_SIZE / 4}px Arial`;
@@ -90,15 +91,7 @@ window.areas = areas;
 // on left click (existing or new)
 let selectedEntity: Selection | undefined = undefined;
 // on right click
-let inspectedEntity: Operator = {
-  x: 0,
-  y: 0,
-  name: "",
-  outputOffsets: [],
-  history: [],
-  value: 0,
-  fn: (b) => b,
-};
+let inspectedEntity: Operator = createOperator({ x: 0, y: 0 });
 let on = {
   space: false,
   meta: false,
