@@ -778,8 +778,8 @@ function handleMousedown(event: MouseEvent): void {
 
   // existing area
   if (area) {
+    // prioritize operator
     if (area.operatorBox) {
-      // select operator
       selectedEntity = area.operatorBox as Selection;
     } else if (area.boxes.length > 0) {
       // select last box
@@ -829,8 +829,6 @@ function handleMousedown(event: MouseEvent): void {
       startY: newEntity.y,
       new: true,
     } as Selection;
-
-    // draw();
   }
 }
 
@@ -848,6 +846,7 @@ function handleDrag(event: MouseEvent): void {
       previewCoordinate = getClosestGrid(mouse.x, mouse.y);
     }
   } else if (altPressed) {
+    // todo: fix scale
     if (isBox(selectedEntity)) {
       if (typeof selectedEntity.value == "number") {
         selectedEntity.value += Math.round(event.movementX / 4);

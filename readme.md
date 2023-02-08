@@ -15,7 +15,6 @@
 - [x] animate operator box lines to show flow of boxes
   - [x] length user-made
   - or lengthens based on complexity?
-- [ ] allow dragging to change output loc
 - what about looping, debugging, logging?
 - parameterize operators?
 - input area should also move if hovered over?
@@ -32,6 +31,7 @@
 - [ ] hover over boxes to view stack underneath, or fan out animation?
 - [ ] fn abstraction (nested canvas?)
 - [ ] easy way to copy paste a layout for demo or save to disk?
+- [ ] allow dragging to change output loc
 
 ## metaphors
 
