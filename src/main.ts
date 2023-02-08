@@ -39,7 +39,7 @@ type Area = {
 
 type _Selection = Operator & {
   new?: boolean;
-  startX: number;
+  startX: number; // loc of mousedown to reset to if invalid mouseup
   startY: number;
 };
 
@@ -1258,23 +1258,10 @@ function init() {
     })
   );
 
-  x = 50;
+  x = 100;
   y = 50;
-  addEntityToArea(createBox({ x, y, value: 1 }));
-  addEntityToArea(createBox({ x, y, value: 2 }));
-  addEntityToArea(
-    createOperator({
-      x,
-      y,
-      name: "even?",
-      fn: (b) => (b % 2 === 0 ? [b] : [, b]),
-    })
-  );
-
-  x = 250;
-  y = 50;
-  addEntityToArea(createBox({ x: 200, y: 50, value: 1 }));
-  addEntityToArea(createBox({ x: 250, y, value: 2 }));
+  addEntityToArea(createBox({ x: 100, y: 50, value: 1 }));
+  addEntityToArea(createBox({ x: 50, y, value: 2 }));
   addEntityToArea(
     createOperator({
       x,
