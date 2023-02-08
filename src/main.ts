@@ -99,12 +99,14 @@ let inspectedEntity: Operator = {
   value: 0,
   fn: (b) => b,
 };
-// where the preview box would be placed if dropped on mouseup, snapped to grid
-let previewCoordinate: Coord | undefined = undefined;
-let spacePressed = false;
-let metaPressed = false;
-let shiftPressed = false;
-let altPressed = false;
+let on = {
+  space: false,
+  meta: false,
+  shift: false,
+  alt: false,
+  drag: false,
+};
+
 let pan: Coord = {
   x: 0,
   y: 0,
@@ -266,18 +268,14 @@ function drawGrid() {
 
 function drawPreviewBox() {
   // preview box (where it would be placed if dropped on mouseup)
-  if (previewCoordinate) {
+  if (on.drag) {
     ctx.fillStyle = "rgba(241, 245, 249, 0.7)";
-    fillRect(previewCoordinate.x, previewCoordinate.y, GRID_SIZE);
+    let { x, y } = getClosestGrid(mouse.x, mouse.y);
+    fillRect(x, y, GRID_SIZE);
     ctx.fillStyle = "black";
 
     // debug
-    // ctx.fillStyle = "black";
-    // ctx.fillText(
-    //   `${previewCoordinate.x},${previewCoordinate.y}`,
-    //   previewCoordinate.x + GRID_SIZE / 2,
-    //   previewCoordinate.y + GRID_SIZE / 2
-    // );
+    // ctx.fillText(`${x},${y}`, x + GRID_SIZE / 2, y + GRID_SIZE / 2);
   }
 }
 
@@ -765,7 +763,7 @@ function cloneEntity(entity: Selection): Selection {
 // box selection or new box
 function handleMousedown(event: MouseEvent): void {
   // if right click or space pressed, return
-  if (event.button !== 0 || spacePressed) {
+  if (event.button !== 0 || on.space) {
     return;
   }
   let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
@@ -837,15 +835,13 @@ function handleDrag(event: MouseEvent): void {
   // logFixed(`${mouse.x}, ${mouse.y}`);
   if (!selectedEntity) {
     // if left click and space pressed, pan
-    if (event.buttons === 1 && spacePressed) {
+    if (event.buttons === 1 && on.space) {
       canvas.style.cursor = "grabbing";
       pan.x += event.movementX;
       pan.y += event.movementY;
       // draw();
-    } else if (metaPressed) {
-      previewCoordinate = getClosestGrid(mouse.x, mouse.y);
     }
-  } else if (altPressed) {
+  } else if (on.alt) {
     // todo: fix scale
     if (isBox(selectedEntity)) {
       if (typeof selectedEntity.value == "number") {
@@ -856,24 +852,15 @@ function handleDrag(event: MouseEvent): void {
       }
     }
   } else {
+    on.drag = true;
     canvas.style.cursor = "move";
     selectedEntity.x += event.movementX;
     selectedEntity.y += event.movementY;
-
-    // set closest grid as "preview"
-    // only when creating new operators
-    // or when moving existing boxes
-    if (
-      (selectedEntity.new && isOperator(selectedEntity)) ||
-      !selectedEntity.new
-    ) {
-      previewCoordinate = getClosestGrid(mouse.x, mouse.y);
-    }
-    // draw();
   }
 }
 
 function handleDrop(): void {
+  on.drag = false;
   canvas.style.cursor = "default";
   if (!selectedEntity) {
     return;
@@ -881,8 +868,11 @@ function handleDrop(): void {
   let startCoord: KeyCoordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
   let startArea = areas.get(startCoord)!;
 
+  let { x, y } = getClosestGrid(mouse.x, mouse.y);
+  let key: KeyCoordinates = `${x},${y}`;
+
   // when moving existing boxes around
-  if (!selectedEntity.new && previewCoordinate) {
+  if (!selectedEntity.new) {
     if (startArea) {
       // delete old box
       if (isOperator(selectedEntity)) {
@@ -893,10 +883,6 @@ function handleDrop(): void {
         );
       }
     }
-
-    let x = previewCoordinate.x;
-    let y = previewCoordinate.y;
-    let key: KeyCoordinates = `${x},${y}`;
 
     // if new area
     if (isAreaEmpty(key)) {
@@ -951,15 +937,14 @@ function handleDrop(): void {
       // set output location of operator to mouse area coord
       startArea.operatorBox.outputOffsets = [
         {
-          x: previewCoordinate!.x - startArea.operatorBox.x,
-          y: previewCoordinate!.y - startArea.operatorBox.y,
+          x: x - startArea.operatorBox.x,
+          y: y - startArea.operatorBox.y,
         },
       ];
     }
   }
 
   draw();
-  previewCoordinate = undefined;
   selectedEntity = undefined;
 }
 
@@ -1010,6 +995,7 @@ function animateBoxLines() {
       progress = 1;
       startTime = performance.now();
     }
+    let { x, y } = getClosestGrid(mouse.x, mouse.y);
 
     for (let { operatorBox } of areas.values()) {
       if (operatorBox) {
@@ -1018,14 +1004,13 @@ function animateBoxLines() {
 
           // new operator line
           if (
-            previewCoordinate &&
             selectedEntity?.new &&
             operatorBox.x == selectedEntity.startX &&
             operatorBox.y == selectedEntity.startY
           ) {
             boxOffset = {
-              x: previewCoordinate.x - operatorBox.x,
-              y: previewCoordinate.y - operatorBox.y,
+              x: x - operatorBox.x,
+              y: y - operatorBox.y,
             };
           }
 
@@ -1182,18 +1167,17 @@ function init() {
     if (event.key === "Escape") {
       hideContextMenu();
     } else if (event.key === " ") {
-      spacePressed = true;
+      on.space = true;
       canvas.style.cursor = "grab";
     } else if (event.key === "Meta") {
       if (mouse.x !== 0 && mouse.y !== 0) {
-        metaPressed = true;
-        previewCoordinate = getClosestGrid(mouse.x, mouse.y);
+        on.meta = true;
       }
     } else if (event.key === "Shift") {
-      shiftPressed = true;
+      on.shift = true;
       // canvas.style.cursor = "move";
     } else if (event.key === "Alt") {
-      altPressed = true;
+      on.alt = true;
       canvas.style.cursor = "ew-resize";
     }
   });
@@ -1201,17 +1185,16 @@ function init() {
   document.addEventListener("keyup", function (event) {
     if (event.key === " ") {
       canvas.style.cursor = "default";
-      spacePressed = false;
+      on.space = false;
     } else if (event.key === "Meta") {
       canvas.style.cursor = "default";
-      metaPressed = false;
-      previewCoordinate = undefined;
+      on.meta = false;
     } else if (event.key === "Shift") {
       // canvas.style.cursor = "default";
-      shiftPressed = false;
+      on.shift = false;
     } else if (event.key === "Alt") {
       canvas.style.cursor = "default";
-      altPressed = false;
+      on.alt = false;
     }
   });
 
