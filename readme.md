@@ -32,6 +32,7 @@
 - [ ] fn abstraction (nested canvas?)
 - [ ] easy way to copy paste a layout for demo or save to disk?
 - [ ] allow dragging to change output loc
+- [ ] cloned fns + differentiate global/local scope?
 
 ## metaphors
 

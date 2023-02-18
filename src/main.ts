@@ -87,6 +87,10 @@ ctx.font = `${GRID_SIZE / 4}px Arial`;
 let areas: Map<KeyCoordinates, Area> = new Map();
 // @ts-ignore
 window.areas = areas;
+// create mapping of operator names to functions
+let operators: Map<string, (b: any) => any> = new Map();
+// @ts-ignore
+window.operators = operators;
 
 // on left click (existing or new)
 let selectedEntity: Selection | undefined = undefined;
@@ -1183,7 +1187,7 @@ function init() {
       canvas.style.cursor = "default";
       on.meta = false;
     } else if (event.key === "Shift") {
-      // canvas.style.cursor = "default";
+      //   canvas.style.cursor = "default";
       on.shift = false;
     } else if (event.key === "Alt") {
       canvas.style.cursor = "default";
@@ -1390,54 +1394,6 @@ function init() {
 
   animateBoxLines();
   requestAnimationFrame(draw);
-}
-
-// function to create multiple operators in a line
-// using addEntityToArea
-function createLineOfOperators({
-  x,
-  y,
-  count,
-  name,
-  fn,
-  outputOffsets,
-}: {
-  x: number;
-  y: number;
-  count: number;
-  name?: string;
-  fn?: (b: any) => any;
-  outputOffsets?: { x: number; y: number }[];
-}) {
-  for (let i = 0; i < count; i++) {
-    addEntityToArea(
-      createOperator({
-        x: x + i * GRID_SIZE,
-        y,
-        name,
-        fn,
-        outputOffsets,
-      })
-    );
-  }
-}
-
-// function to create multiple boxes in a line
-// using addEntityToArea
-function createLineOfBoxes({
-  x,
-  y,
-  count,
-  value,
-}: {
-  x: number;
-  y: number;
-  count: number;
-  value?: number;
-}) {
-  for (let i = 0; i < count; i++) {
-    addEntityToArea(createBox({ x: x + i * GRID_SIZE, y, value }));
-  }
 }
 
 init();
