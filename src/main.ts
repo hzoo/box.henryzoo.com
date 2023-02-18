@@ -567,34 +567,35 @@ function createInput(property: "name" | "value") {
   document.body.appendChild(input);
   input.focus();
 
-  input.addEventListener("keydown", function (event: KeyboardEvent) {
-    if (event.key === "Enter") {
-      let val = (event.target as HTMLInputElement).value;
-      if (property == "value") {
-        inspectedEntity[property] = parseInt(val);
-        if (inspectedEntity.name === "drawSpeed") {
-          drawSpeed = parseInt(val);
-        }
-      } else {
-        inspectedEntity[property] = val;
-      }
-
-      input.remove();
-    }
-  });
-
-  input.addEventListener("blur", function (event: Event) {
+  function handleSubmit(event: Event) {
     let val = (event.target as HTMLInputElement).value;
     if (property == "value") {
       inspectedEntity[property] = parseInt(val);
       if (inspectedEntity.name === "drawSpeed") {
         drawSpeed = parseInt(val);
       }
-    } else {
+    } else if (property == "name") {
+      // copy fn to new name
+      if (!operators[val]) {
+        operators[val] = operators[inspectedEntity.name];
+      }
+
       inspectedEntity[property] = val;
     }
 
+    input.removeEventListener("keydown", handleSubmit);
+    input.removeEventListener("blur", handleSubmit);
     input.remove();
+  }
+
+  input.addEventListener("keydown", function (event: KeyboardEvent) {
+    if (event.key === "Enter") {
+      handleSubmit(event);
+    }
+  });
+
+  input.addEventListener("blur", function (event: Event) {
+    handleSubmit(event);
   });
 }
 
