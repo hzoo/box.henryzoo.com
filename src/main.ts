@@ -16,7 +16,6 @@ type BoxHistory = {
   operatorName: string; // name of operator that caused this change
 };
 
-// fn already has a "value" and a name?
 // maybe value should be a getter?
 type Box = Coord & {
   name: string; // label
@@ -29,7 +28,6 @@ type Box = Coord & {
 
 type Operator = Box & {
   outputOffsets: Coord[]; // store offset from x,y
-  fn: (b: any) => any;
 };
 
 type Area = {
@@ -46,7 +44,7 @@ type _Selection = Operator & {
 type Selection = Prettify<_Selection>;
 
 function isOperator(entity: Box | Operator): entity is Operator {
-  return (entity as Operator).fn !== undefined;
+  return (entity as Operator).outputOffsets !== undefined;
 }
 
 function isBox(entity: Box | Operator): entity is Box {
@@ -88,9 +86,11 @@ let areas: Map<KeyCoordinates, Area> = new Map();
 // @ts-ignore
 window.areas = areas;
 // create mapping of operator names to functions
-let operators: Map<string, (b: any) => any> = new Map();
+// let operators: Map<string, (b: any) => any> = new Map();
+let operators: { [key: string]: (b: any) => any } = {};
 // @ts-ignore
 window.operators = operators;
+operators.id = (a) => a;
 
 // on left click (existing or new)
 let selectedEntity: Selection | undefined = undefined;
@@ -360,7 +360,7 @@ function draw() {
           y: operatorBox.y + operatorBox.outputOffsets[0].y,
         };
 
-        let result = operatorBox.fn(box.value);
+        let result = operators[operatorBox.name](box.value);
 
         if (Array.isArray(result)) {
           if (result[0] === undefined) {
@@ -624,17 +624,17 @@ function createContextMenu() {
           input.style.top = `${inspectedEntity.y + pan.y}px`; // handle pan
           input.style.width = `${GRID_SIZE * 3}px`;
           input.style.height = `${GRID_SIZE}px`;
-          input.value = inspectedEntity.fn.toString();
+          input.value = operators[inspectedEntity.name].toString();
           document.body.appendChild(input);
           input.focus();
 
           function handleChange(event: Event) {
             let inputValue = (event.target as HTMLInputElement).value;
             try {
-              let fn = new Function(`return ${inputValue}`);
-              let opFn = fn();
-              inspectedEntity.fn = opFn;
-              let res = opFn(1);
+              let evalResult = new Function(`return ${inputValue}`);
+              let operator = evalResult();
+              operators[inspectedEntity.name] = operator;
+              let res = operator(1);
               if (Array.isArray(res)) {
                 if (res.length > inspectedEntity.outputOffsets.length) {
                   for (
@@ -658,7 +658,7 @@ function createContextMenu() {
                     inspectedEntity.outputOffsets.slice(0, 1);
                 }
               }
-              // log(`set ${inspectedEntity.name} to ${opFn}`);
+              // log(`set ${inspectedEntity.name} to ${operator.toString()}`);
             } catch (e) {
               // log(`error setting ${inspectedEntity.name} to ${inputValue}`);
             }
@@ -751,8 +751,7 @@ function handleRightClick(event: MouseEvent) {
 function cloneEntity(entity: Selection): Selection {
   let clone = JSON.parse(JSON.stringify(entity));
   if (isOperator(entity)) {
-    // copy the function in entity.fn
-    clone.fn = entity.fn;
+    clone.name = entity.name;
   }
   return clone;
 }
@@ -1096,9 +1095,14 @@ function createOperator({
     },
   ];
 
-  if (fn) {
-    newOperator.fn = fn;
-    let res = fn(1);
+  if (name) {
+    // check if operator already in mapping
+    if (!operators[name] && fn) {
+      operators[name] = fn;
+    }
+    newOperator.name = name;
+
+    let res = operators[name](1);
     if (Array.isArray(res)) {
       // create multiple outputOffets
       // only if newOperator.outputOffsets is empty
@@ -1111,10 +1115,7 @@ function createOperator({
         }
       }
     }
-    newOperator.name = name || fn.name;
   } else {
-    newOperator.fn = (a) => a;
-    Object.defineProperty(newOperator.fn, "name", { value: "id" });
     newOperator.name = "id";
   }
 
@@ -1151,8 +1152,6 @@ function addEntityToArea(
   }
   return entity;
 }
-
-let double = (b: number) => b * 2;
 
 function init() {
   canvas.addEventListener("contextmenu", handleRightClick);
@@ -1215,7 +1214,8 @@ function init() {
     createOperator({
       x,
       y: y + 100,
-      fn: double,
+      name: "double",
+      fn: (b: number) => b * 2,
     })
   );
   addEntityToArea(
@@ -1243,34 +1243,9 @@ function init() {
     createOperator({
       x: x - 50,
       y,
-      fn: (b) => b,
       name: "id",
     })
   );
-
-  // createLineOfBoxes({
-  //   x: 50,
-  //   y: 500,
-  //   count: 5,
-  //   value: 4,
-  // });
-  // createLineOfOperators({
-  //   x: 50,
-  //   y: 500,
-  //   name: ">>2",
-  //   fn: (b) => b >> 2,
-  //   count: 5,
-  //   outputOffsets: [{ x: 0, y: 50 }],
-  // });
-  // createLineOfOperators({
-  //   x: 50,
-  //   y: 550,
-  //   name: "<<2",
-  //   fn: (b) => b << 2,
-  //   count: 5,
-  //   outputOffsets: [{ x: 0, y: -50 }],
-  // });
-
   x = 100;
   y = 450;
   addEntityToArea(
@@ -1366,7 +1341,6 @@ function init() {
       x: x + 50 * 1,
       y,
       name: "clone",
-      fn: (a) => [a, a],
       outputOffsets: [
         { x: 50 * 1, y: 50 * -2 },
         { x: 50 * 1, y: 50 * 1 },
