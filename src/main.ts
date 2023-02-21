@@ -1055,7 +1055,7 @@ function handleDrop(): void {
       if (!selectedEntity.editLoc && !selectedEntity.new) {
         return;
       }
-      let offset = selectedEntity.editLoc - 1;
+      let offset = selectedEntity.editLoc - 1 || 0;
       // set output location of operator to mouse area coord
       startArea.operatorBox.outputOffsets[offset] = {
         x: x - startArea.operatorBox.x,
