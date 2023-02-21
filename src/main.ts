@@ -28,6 +28,7 @@ type Box = Coord & {
 
 type Operator = Box & {
   outputOffsets: Coord[]; // store offset from x,y
+  auto: boolean; // if true, fast forward to next operator
 };
 
 type Area = {
@@ -76,17 +77,398 @@ observer.observe(canvas);
 let GRID_SIZE = 50;
 let drawSpeed = 1;
 
-let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-ctx.textAlign = "center";
-ctx.textBaseline = "middle";
-ctx.font = `${GRID_SIZE / 4}px Arial`;
+function createRenderer(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `${GRID_SIZE / 4}px Arial`;
+
+  return {
+    strokeRect(x: number, y: number, sizeX: number, sizeY: number) {
+      ctx.fillStyle = "black";
+      let { x: _x, y: _y } = applyPan(x, y);
+      ctx.strokeRect(_x, _y, sizeX, sizeY);
+    },
+    drawBorder(x: number, y: number, size: number, dotted = false) {
+      ctx.fillStyle = "black";
+      ctx.lineDashOffset = 0;
+      if (dotted) {
+        ctx.setLineDash([5, 5]);
+      } else {
+        ctx.setLineDash([]);
+      }
+      let { x: _x, y: _y } = applyPan(x, y);
+      ctx.strokeRect(_x, _y, size, size);
+    },
+    drawLogs() {
+      ctx.textAlign = "left";
+      // draw logs
+      for (let i = 0; i < canvasLogs.length; i++) {
+        this.fillText(canvasLogs[i], mouse.x + 5, mouse.y - 30 - i * 20);
+
+        let textWidth = ctx.measureText(canvasLogs[i]).width;
+        this.strokeRect(
+          mouse.x,
+          mouse.y - (canvasLogs.length + 1) * 20 - 8,
+          textWidth + 10,
+          (canvasLogs.length + 1) * 20 + 5
+        );
+      }
+      // fixedCanvasLog;
+      if (fixedCanvasLog) {
+        this.fillText(fixedCanvasLog, mouse.x + 5, mouse.y - 12);
+      }
+      ctx.textAlign = "center";
+    },
+
+    // wrap ctx.fillRect with pan
+    fillRect(x: number, y: number, size: number) {
+      let { x: _x, y: _y } = applyPan(x, y);
+      ctx.fillRect(_x, _y, size, size);
+    },
+
+    // wrap ctx.fillText with pan
+    fillText(text: string, x: number, y: number) {
+      let { x: _x, y: _y } = applyPan(x, y);
+      ctx.fillText(text, _x, _y);
+    },
+
+    drawLine(startCoord: Coord, endCoord: Coord) {
+      let { x: startX, y: startY } = applyPan(startCoord.x, startCoord.y);
+      let { x: endX, y: endY } = applyPan(endCoord.x, endCoord.y);
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+    },
+
+    drawBox(box: Box) {
+      ctx.strokeStyle = "black";
+      ctx.fillStyle = "white";
+      this.fillRect(box.x, box.y, GRID_SIZE);
+      ctx.fillStyle = "black";
+      this.drawBorder(box.x, box.y, GRID_SIZE);
+
+      // draw value
+      let text = box.value.toString();
+      this.fillText(text, box.x + GRID_SIZE / 2, box.y + GRID_SIZE / 2);
+
+      // draw name if there is one
+      if (box.name) {
+        this.fillText(box.name, box.x + GRID_SIZE / 2, box.y - 10);
+      }
+    },
+
+    drawBoxStack(x: number, y: number, length: number) {
+      ctx.beginPath();
+      ctx.arc(
+        x + GRID_SIZE + 7 + pan.x,
+        y + GRID_SIZE + 8 + pan.y,
+        9,
+        0,
+        2 * Math.PI
+      );
+      ctx.strokeStyle = "#f87171";
+      ctx.stroke();
+      this.fillText(`${length}`, x + GRID_SIZE + 7, y + GRID_SIZE + 9);
+    },
+
+    drawGrid() {
+      let startX = -pan.x + (pan.x % GRID_SIZE);
+      let startY = -pan.y + (pan.y % GRID_SIZE);
+      let endX = startX + canvas.width;
+      let endY = startY + canvas.height;
+      for (let i = startX; i < endX; i += GRID_SIZE) {
+        for (let j = startY; j < endY; j += GRID_SIZE) {
+          this.fillRect(i, j, 2);
+        }
+      }
+    },
+
+    drawPreviewBox() {
+      // preview box (where it would be placed if dropped on mouseup)
+      if (on.drag) {
+        ctx.fillStyle = "rgba(241, 245, 249, 0.7)";
+        let { x, y } = getClosestGrid(mouse.x, mouse.y);
+        this.fillRect(x, y, GRID_SIZE);
+        ctx.fillStyle = "black";
+
+        // debug
+        // ctx.fillText(`${x},${y}`, x + GRID_SIZE / 2, y + GRID_SIZE / 2);
+      }
+    },
+
+    draw() {
+      // clear canvas in animation frame
+      // ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "black";
+
+      this.drawGrid();
+
+      let operatorAreas = [];
+      let boxesOnlyAreas = [];
+
+      // draw not moving boxes first
+      for (let area of areas.values()) {
+        let { operatorBox, boxes } = area;
+
+        if (operatorBox) {
+          operatorAreas.push(area);
+          continue;
+        }
+
+        for (let box of boxes) {
+          this.drawBox(box);
+        }
+
+        if (boxes.length > 1) {
+          boxesOnlyAreas.push(area);
+        }
+      }
+
+      for (let area of operatorAreas) {
+        let { operatorBox, boxes } = area;
+
+        if (!operatorBox) {
+          return;
+        }
+
+        // draw each operator
+        if (operatorBox!) {
+          if (operatorBox.name.startsWith("is")) {
+            ctx.strokeStyle = "red";
+          } else {
+            ctx.strokeStyle = "black";
+          }
+
+          this.drawBorder(operatorBox.x, operatorBox.y, GRID_SIZE, true);
+
+          // move y position up or down depending on if there is an operator above it
+          let y = operatorBox.y - 10;
+          let x = operatorBox.x + GRID_SIZE / 2;
+          let above = getClosestArea(operatorBox.x, operatorBox.y - GRID_SIZE);
+          if (above && above.operatorBox) {
+            y = operatorBox.y + GRID_SIZE + 12;
+
+            // if also below, move to the left
+            let below = getClosestArea(
+              operatorBox.x,
+              operatorBox.y + GRID_SIZE
+            );
+            if (below && below.operatorBox) {
+              y = operatorBox.y + GRID_SIZE / 2;
+              // use ctx.measureText to get width of text
+              let m = ctx.measureText(`${operatorBox.name}`);
+              x = operatorBox.x - m.width;
+            }
+          }
+
+          this.fillText(`${operatorBox.name}`, x, y);
+        }
+
+        // draw each moving box last
+        for (let box of boxes) {
+          // don't draw if selectedBox
+          if (
+            selectedEntity &&
+            selectedEntity.x == box.x &&
+            selectedEntity.y == box.y
+          ) {
+            continue;
+          }
+
+          // change box value
+          if (
+            !box.updated &&
+            box.x == operatorBox.x &&
+            box.y == operatorBox.y
+          ) {
+            // animate the box towards the end of the operator box
+            box.end = {
+              x: operatorBox.x + operatorBox.outputOffsets[0].x,
+              y: operatorBox.y + operatorBox.outputOffsets[0].y,
+            };
+
+            let result = operators[operatorBox.name](box.value);
+
+            if (Array.isArray(result)) {
+              if (result[0] === undefined) {
+                area.boxes = area.boxes.filter((b) => b !== box);
+              } else {
+                box.value = result[0];
+              }
+
+              // create a new box for each value in the array
+              for (let i = 1; i < result.length; i++) {
+                if (result[i] === undefined) continue;
+
+                let end = {
+                  x: operatorBox.outputOffsets[0].x,
+                  y: operatorBox.outputOffsets[0].y + i * GRID_SIZE,
+                };
+
+                if (operatorBox.outputOffsets[i]) {
+                  end.x = operatorBox.outputOffsets[i].x;
+                  end.y = operatorBox.outputOffsets[i].y;
+                }
+
+                // add new box
+                area.boxes.push({
+                  name: "",
+                  updated: true,
+                  x: box.x,
+                  y: box.y,
+                  end: {
+                    x: operatorBox.x + end.x,
+                    y: operatorBox.y + end.y,
+                  },
+                  value: result[i],
+                  history: [
+                    {
+                      operatorName: operatorBox.name,
+                      value: operatorBox.value,
+                    },
+                  ],
+                });
+              }
+            } else if (result?.constructor === Object) {
+              if (result?.name) box.name = result.name;
+              if (result?.value) box.value = result.value;
+              if (result?.end) box.end = result.end;
+              if (result?.speed) box.speed = result.speed;
+            } else if (operatorBox.name.startsWith("is")) {
+              // move down
+              if (result == false) {
+                box.end = {
+                  x: operatorBox.x + operatorBox.outputOffsets[0].x,
+                  y: operatorBox.y + operatorBox.outputOffsets[0].y + GRID_SIZE,
+                };
+                if (operatorBox.outputOffsets[1]) {
+                  box.end = {
+                    x: operatorBox.x + operatorBox.outputOffsets[1].x,
+                    y: operatorBox.y + operatorBox.outputOffsets[1].y,
+                  };
+                }
+              }
+            } else if (result == "") {
+              area.boxes = area.boxes.filter((b) => b !== box);
+            } else {
+              box.value = result;
+            }
+
+            box.history.push({
+              operatorName: operatorBox.name,
+              value: box.value,
+            });
+          }
+
+          let end = box.end;
+          if (end) {
+            // only if not already at the end
+            if (box.x !== end.x) {
+              box.x += (end.x - box.x) * 0.05 * (box.speed || drawSpeed);
+            }
+            if (box.y !== end.y) {
+              box.y += (end.y - box.y) * 0.05 * (box.speed || drawSpeed);
+            }
+
+            if (operatorBox.auto) {
+              box.x = end.x - 0.1;
+              box.y = end.y - 0.1;
+            }
+
+            // account for negative differnces using math.abs
+            if (
+              (Math.abs(end.x - box.x) < 1 && box.x !== end.x) ||
+              (Math.abs(end.y - box.y) < 1 && box.y !== end.y)
+            ) {
+              box.updated = true;
+              box.x = end.x;
+              box.y = end.y;
+              box.end = undefined;
+              box.speed = undefined;
+
+              // remove box from area
+              area.boxes = area.boxes.filter((b) => b !== box);
+              // add to new area
+              addEntityToArea(box);
+            }
+          } else {
+            box.updated = false;
+          }
+
+          this.drawBox(box);
+        }
+      }
+
+      // draw length of box stacks on top
+      for (let { boxes } of boxesOnlyAreas) {
+        if (boxes.length > 1) {
+          this.drawBoxStack(boxes[0].x, boxes[0].y, boxes.length);
+        }
+      }
+
+      this.drawPreviewBox();
+
+      // draw selected box last
+      if (selectedEntity && !isOperator(selectedEntity)) {
+        this.drawBox(selectedEntity);
+      }
+
+      this.drawLogs();
+    },
+    drawOperatorLine(
+      operatorBox: Operator,
+      {
+        boxOffset,
+        dotSize,
+        dotSpacing,
+        progress,
+      }: {
+        boxOffset: Coord;
+        dotSize: number;
+        dotSpacing: number;
+        progress: number;
+      }
+    ) {
+      let dotCount = Math.floor(
+        Math.sqrt(Math.pow(boxOffset.x, 2) + Math.pow(boxOffset.y, 2)) /
+          (dotSize + dotSpacing)
+      );
+
+      ctx.setLineDash([dotSize, dotSpacing]);
+      ctx.lineDashOffset = -Math.round(
+        progress * (dotSize + dotSpacing) * dotCount
+      );
+      // different color for moving line, so it's easier to see
+      ctx.strokeStyle = "#78350f";
+      // draw line
+      this.drawLine(
+        {
+          x: operatorBox.x + GRID_SIZE / 2,
+          y: operatorBox.y + GRID_SIZE / 2,
+        },
+        {
+          x: operatorBox.x + boxOffset.x + GRID_SIZE / 2,
+          y: operatorBox.y + boxOffset.y + GRID_SIZE / 2,
+        }
+      );
+    },
+    clear() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    },
+    ctx,
+  };
+}
+
+const Renderer = createRenderer(canvas);
 
 // coordinate areas contain boxes and potential operator
 let areas: Map<KeyCoordinates, Area> = new Map();
 // @ts-ignore
 window.areas = areas;
+
 // create mapping of operator names to functions
-// let operators: Map<string, (b: any) => any> = new Map();
 let operators: { [key: string]: (b: any) => any } = {};
 // @ts-ignore
 window.operators = operators;
@@ -129,33 +511,25 @@ function logFixed(text: string) {
   fixedCanvasLog = text;
 }
 
-function drawLogs() {
-  ctx.textAlign = "left";
-  // draw logs
-  for (let i = 0; i < canvasLogs.length; i++) {
-    fillText(canvasLogs[i], mouse.x + 5, mouse.y - 30 - i * 20);
-
-    let textWidth = ctx.measureText(canvasLogs[i]).width;
-    strokeRect(
-      mouse.x,
-      mouse.y - (canvasLogs.length + 1) * 20 - 8,
-      textWidth + 10,
-      (canvasLogs.length + 1) * 20 + 5
-    );
-  }
-  // fixedCanvasLog;
-  if (fixedCanvasLog) {
-    fillText(fixedCanvasLog, mouse.x + 5, mouse.y - 12);
-  }
-  ctx.textAlign = "center";
-}
-
 function _isEmptyArea(area: Area): boolean {
   return area.boxes.length === 0 && area.operatorBox === undefined;
 }
 
 function isAreaEmpty(key: KeyCoordinates): boolean {
   return !areas.has(key) || _isEmptyArea(areas.get(key) as Area);
+}
+
+// function to check closest box Coordinate
+function getClosestArea(x: number, y: number): Area | undefined {
+  // let coord = getClosestGrid(x, y);
+  // let key: KeyCoordinates = toKey(coord.x, coord.y);
+  let { x: closestX, y: closestY } = getClosestGrid(x, y);
+  let key: KeyCoordinates = `${closestX},${closestY}`;
+  if (areas.has(key)) {
+    return areas.get(key);
+  }
+
+  return undefined;
 }
 
 function toKey(x: number, y: number): KeyCoordinates {
@@ -173,315 +547,12 @@ function getClosestGrid(x: number, y: number): { x: number; y: number } {
   };
 }
 
-function strokeRect(x: number, y: number, sizeX: number, sizeY: number) {
-  ctx.fillStyle = "black";
-  let { x: _x, y: _y } = applyPan(x, y);
-  ctx.strokeRect(_x, _y, sizeX, sizeY);
-}
-
-function drawBorder(x: number, y: number, size: number, dotted = false) {
-  ctx.fillStyle = "black";
-  ctx.lineDashOffset = 0;
-  if (dotted) {
-    ctx.setLineDash([5, 5]);
-  } else {
-    ctx.setLineDash([]);
-  }
-  let { x: _x, y: _y } = applyPan(x, y);
-  ctx.strokeRect(_x, _y, size, size);
-}
-
 function applyPan(x: number, y: number): { x: number; y: number } {
   return { x: x + pan.x, y: y + pan.y };
 }
 
 function reversePan(x: number, y: number): { x: number; y: number } {
   return { x: x - pan.x, y: y - pan.y };
-}
-
-// wrap ctx.fillRect with pan
-function fillRect(x: number, y: number, size: number) {
-  let { x: _x, y: _y } = applyPan(x, y);
-  ctx.fillRect(_x, _y, size, size);
-}
-
-// wrap ctx.fillText with pan
-function fillText(text: string, x: number, y: number) {
-  let { x: _x, y: _y } = applyPan(x, y);
-  ctx.fillText(text, _x, _y);
-}
-
-function drawLine(startCoord: Coord, endCoord: Coord) {
-  let { x: startX, y: startY } = applyPan(startCoord.x, startCoord.y);
-  let { x: endX, y: endY } = applyPan(endCoord.x, endCoord.y);
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
-  ctx.lineTo(endX, endY);
-  ctx.stroke();
-}
-
-function drawBox(box: Box) {
-  ctx.strokeStyle = "black";
-  ctx.fillStyle = "white";
-  fillRect(box.x, box.y, GRID_SIZE);
-  ctx.fillStyle = "black";
-  drawBorder(box.x, box.y, GRID_SIZE);
-
-  // draw value
-  let text = box.value.toString();
-  fillText(text, box.x + GRID_SIZE / 2, box.y + GRID_SIZE / 2);
-
-  // draw name if there is one
-  if (box.name) {
-    fillText(box.name, box.x + GRID_SIZE / 2, box.y - 10);
-  }
-}
-
-function drawBoxStack(x: number, y: number, length: number) {
-  ctx.beginPath();
-  ctx.arc(
-    x + GRID_SIZE + 7 + pan.x,
-    y + GRID_SIZE + 8 + pan.y,
-    9,
-    0,
-    2 * Math.PI
-  );
-  ctx.strokeStyle = "#f87171";
-  ctx.stroke();
-  fillText(`${length}`, x + GRID_SIZE + 7, y + GRID_SIZE + 9);
-}
-
-function drawGrid() {
-  let startX = -pan.x + (pan.x % GRID_SIZE);
-  let startY = -pan.y + (pan.y % GRID_SIZE);
-  let endX = startX + canvas.width;
-  let endY = startY + canvas.height;
-  for (let i = startX; i < endX; i += GRID_SIZE) {
-    for (let j = startY; j < endY; j += GRID_SIZE) {
-      fillRect(i, j, 2);
-    }
-  }
-}
-
-function drawPreviewBox() {
-  // preview box (where it would be placed if dropped on mouseup)
-  if (on.drag) {
-    ctx.fillStyle = "rgba(241, 245, 249, 0.7)";
-    let { x, y } = getClosestGrid(mouse.x, mouse.y);
-    fillRect(x, y, GRID_SIZE);
-    ctx.fillStyle = "black";
-
-    // debug
-    // ctx.fillText(`${x},${y}`, x + GRID_SIZE / 2, y + GRID_SIZE / 2);
-  }
-}
-
-function draw() {
-  // clear canvas in animation frame
-  // ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = "black";
-
-  drawGrid();
-
-  let operatorAreas = [];
-  let boxesOnlyAreas = [];
-
-  // draw not moving boxes first
-  for (let area of areas.values()) {
-    let { operatorBox, boxes } = area;
-
-    if (operatorBox) {
-      operatorAreas.push(area);
-      continue;
-    }
-
-    for (let box of boxes) {
-      drawBox(box);
-    }
-
-    if (boxes.length > 1) {
-      boxesOnlyAreas.push(area);
-    }
-  }
-
-  for (let area of operatorAreas) {
-    let { operatorBox, boxes } = area;
-
-    if (!operatorBox) {
-      return;
-    }
-
-    // draw each operator
-    if (operatorBox!) {
-      if (operatorBox.name.startsWith("is")) {
-        ctx.strokeStyle = "red";
-      } else {
-        ctx.strokeStyle = "black";
-      }
-
-      drawBorder(operatorBox.x, operatorBox.y, GRID_SIZE, true);
-
-      // move y position up or down depending on if there is an operator above it
-      let y = operatorBox.y - 10;
-      let x = operatorBox.x + GRID_SIZE / 2;
-      let above = getClosestArea(operatorBox.x, operatorBox.y - GRID_SIZE);
-      if (above && above.operatorBox) {
-        y = operatorBox.y + GRID_SIZE + 12;
-
-        // if also below, move to the left
-        let below = getClosestArea(operatorBox.x, operatorBox.y + GRID_SIZE);
-        if (below && below.operatorBox) {
-          y = operatorBox.y + GRID_SIZE / 2;
-          // use ctx.measureText to get width of text
-          let m = ctx.measureText(`${operatorBox.name}`);
-          x = operatorBox.x - m.width;
-        }
-      }
-
-      fillText(`${operatorBox.name}`, x, y);
-    }
-
-    // draw each moving box last
-    for (let box of boxes) {
-      // don't draw if selectedBox
-      if (
-        selectedEntity &&
-        selectedEntity.x == box.x &&
-        selectedEntity.y == box.y
-      ) {
-        continue;
-      }
-
-      // change box value
-      if (!box.updated && box.x == operatorBox.x && box.y == operatorBox.y) {
-        // animate the box towards the end of the operator box
-        box.end = {
-          x: operatorBox.x + operatorBox.outputOffsets[0].x,
-          y: operatorBox.y + operatorBox.outputOffsets[0].y,
-        };
-
-        let result = operators[operatorBox.name](box.value);
-
-        if (Array.isArray(result)) {
-          if (result[0] === undefined) {
-            area.boxes = area.boxes.filter((b) => b !== box);
-          } else {
-            box.value = result[0];
-          }
-
-          // create a new box for each value in the array
-          for (let i = 1; i < result.length; i++) {
-            if (result[i] === undefined) continue;
-
-            let end = {
-              x: operatorBox.outputOffsets[0].x,
-              y: operatorBox.outputOffsets[0].y + i * GRID_SIZE,
-            };
-
-            if (operatorBox.outputOffsets[i]) {
-              end.x = operatorBox.outputOffsets[i].x;
-              end.y = operatorBox.outputOffsets[i].y;
-            }
-
-            // add new box
-            area.boxes.push({
-              name: "",
-              updated: true,
-              x: box.x,
-              y: box.y,
-              end: {
-                x: operatorBox.x + end.x,
-                y: operatorBox.y + end.y,
-              },
-              value: result[i],
-              history: [
-                {
-                  operatorName: operatorBox.name,
-                  value: operatorBox.value,
-                },
-              ],
-            });
-          }
-        } else if (result?.constructor === Object) {
-          if (result?.name) box.name = result.name;
-          if (result?.value) box.value = result.value;
-          if (result?.end) box.end = result.end;
-          if (result?.speed) box.speed = result.speed;
-        } else if (operatorBox.name.startsWith("is")) {
-          // move down
-          if (result == false) {
-            box.end = {
-              x: operatorBox.x + operatorBox.outputOffsets[0].x,
-              y: operatorBox.y + operatorBox.outputOffsets[0].y + GRID_SIZE,
-            };
-            if (operatorBox.outputOffsets[1]) {
-              box.end = {
-                x: operatorBox.x + operatorBox.outputOffsets[1].x,
-                y: operatorBox.y + operatorBox.outputOffsets[1].y,
-              };
-            }
-          }
-        } else if (result == "") {
-          area.boxes = area.boxes.filter((b) => b !== box);
-        } else {
-          box.value = result;
-        }
-
-        box.history.push({
-          operatorName: operatorBox.name,
-          value: box.value,
-        });
-      }
-
-      let end = box.end;
-      if (end) {
-        // only if not already at the end
-        if (box.x !== end.x) {
-          box.x += (end.x - box.x) * 0.05 * (box.speed || drawSpeed);
-        }
-        if (box.y !== end.y) {
-          box.y += (end.y - box.y) * 0.05 * (box.speed || drawSpeed);
-        }
-
-        // account for negative differnces using math.abs
-        if (
-          (Math.abs(end.x - box.x) < 1 && box.x !== end.x) ||
-          (Math.abs(end.y - box.y) < 1 && box.y !== end.y)
-        ) {
-          box.updated = true;
-          box.x = end.x;
-          box.y = end.y;
-          box.end = undefined;
-          box.speed = undefined;
-
-          // remove box from area
-          area.boxes = area.boxes.filter((b) => b !== box);
-          // add to new area
-          addEntityToArea(box);
-        }
-      } else {
-        box.updated = false;
-      }
-
-      drawBox(box);
-    }
-  }
-
-  // draw length of box stacks on top
-  for (let { boxes } of boxesOnlyAreas) {
-    if (boxes.length > 1) {
-      drawBoxStack(boxes[0].x, boxes[0].y, boxes.length);
-    }
-  }
-
-  drawPreviewBox();
-
-  // draw selected box last
-  if (selectedEntity && !isOperator(selectedEntity)) {
-    drawBox(selectedEntity);
-  }
-
-  drawLogs();
 }
 
 // get mouse position
@@ -500,19 +571,6 @@ function getAbsMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
     x: event.clientX - rect.left,
     y: event.clientY - rect.top,
   };
-}
-
-// function to check closest box Coordinate
-function getClosestArea(x: number, y: number): Area | undefined {
-  // let coord = getClosestGrid(x, y);
-  // let key: KeyCoordinates = toKey(coord.x, coord.y);
-  let { x: closestX, y: closestY } = getClosestGrid(x, y);
-  let key: KeyCoordinates = `${closestX},${closestY}`;
-  if (areas.has(key)) {
-    return areas.get(key);
-  }
-
-  return undefined;
 }
 
 function updateContextMenu(
@@ -948,46 +1006,13 @@ function handleDrop(): void {
   selectedEntity = undefined;
 }
 
-function drawOperatorLine(
-  operatorBox: Operator,
-  {
-    boxOffset,
-    dotSize,
-    dotSpacing,
-    progress,
-  }: { boxOffset: Coord; dotSize: number; dotSpacing: number; progress: number }
-) {
-  let dotCount = Math.floor(
-    Math.sqrt(Math.pow(boxOffset.x, 2) + Math.pow(boxOffset.y, 2)) /
-      (dotSize + dotSpacing)
-  );
-
-  ctx.setLineDash([dotSize, dotSpacing]);
-  ctx.lineDashOffset = -Math.round(
-    progress * (dotSize + dotSpacing) * dotCount
-  );
-  // different color for moving line, so it's easier to see
-  ctx.strokeStyle = "#78350f";
-  // draw line
-  drawLine(
-    {
-      x: operatorBox.x + GRID_SIZE / 2,
-      y: operatorBox.y + GRID_SIZE / 2,
-    },
-    {
-      x: operatorBox.x + boxOffset.x + GRID_SIZE / 2,
-      y: operatorBox.y + boxOffset.y + GRID_SIZE / 2,
-    }
-  );
-}
-
 function animateBoxLines() {
   let dotSpacing = 10;
   let dotSize = 5;
   let animationDuration = 4000;
   let startTime = performance.now();
   function animateLine() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    Renderer.clear();
 
     let time = performance.now();
     let progress = (time - startTime) / animationDuration;
@@ -1014,7 +1039,7 @@ function animateBoxLines() {
             };
           }
 
-          drawOperatorLine(operatorBox, {
+          Renderer.drawOperatorLine(operatorBox, {
             boxOffset,
             dotSize,
             dotSpacing,
@@ -1031,7 +1056,7 @@ function animateBoxLines() {
             y: GRID_SIZE,
           };
 
-          drawOperatorLine(operatorBox, {
+          Renderer.drawOperatorLine(operatorBox, {
             boxOffset,
             dotSize,
             dotSpacing,
@@ -1041,7 +1066,7 @@ function animateBoxLines() {
       }
     }
 
-    draw();
+    Renderer.draw();
     requestAnimationFrame(animateLine);
   }
   requestAnimationFrame(animateLine);
@@ -1119,6 +1144,8 @@ function createOperator({
         }
       }
     }
+
+    // newOperator.auto = true;
   } else {
     newOperator.name = "id";
   }
@@ -1368,7 +1395,6 @@ function init() {
   );
 
   animateBoxLines();
-  requestAnimationFrame(draw);
 }
 
 init();
