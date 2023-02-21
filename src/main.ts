@@ -28,7 +28,8 @@ type Box = Coord & {
 
 type Operator = Box & {
   outputOffsets: Coord[]; // store offset from x,y
-  auto: boolean; // if true, fast forward to next operator
+  auto: boolean; // WIP: if true, fast forward to next operator
+  editLoc: number; // WIP: if true, allow editing of outputOffsets
 };
 
 type Area = {
@@ -474,16 +475,15 @@ let operators: { [key: string]: (b: any) => any } = {};
 window.operators = operators;
 operators.id = (a) => a;
 
-// on left click (existing or new)
+// on left click (existing or new), or right click (existing)
 let selectedEntity: Selection | undefined = undefined;
-// on right click
-let inspectedEntity: Operator = createOperator({ x: 0, y: 0 });
 let on = {
   space: false,
   meta: false,
   shift: false,
   alt: false,
   drag: false,
+  edit: false,
 };
 
 let pan: Coord = {
@@ -574,7 +574,8 @@ function getAbsMousePos(canvas: HTMLCanvasElement, event: MouseEvent) {
 }
 
 function updateContextMenu(
-  action: "existing-box" | "existing-operator" | "new"
+  action: "existing-box" | "existing-operator" | "new",
+  entity?: Operator
 ) {
   let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
   if (action === "existing-box") {
@@ -587,8 +588,16 @@ function updateContextMenu(
     contextMenu.innerHTML = `
       <div class="context-menu-item" data-action="edit">Edit</div>
       <div class="context-menu-item" data-action="edit-name">Edit Name</div>
-      <div class="context-menu-item" data-action="delete">Delete</div>
     `;
+    if (entity) {
+      entity.outputOffsets.forEach((offset, index) => {
+        index += 1;
+        contextMenu.innerHTML += `
+          <div class="context-menu-item" data-action="edit-loc-${index}">Edit Loc ${index}</div>
+        `;
+      });
+    }
+    contextMenu.innerHTML += `<div class="context-menu-item" data-action="delete">Delete</div>`;
   } else if (action === "new") {
     contextMenu.innerHTML = `
       <div class="context-menu-item" data-action="create-value">+ Value (□)</div>
@@ -605,8 +614,8 @@ function getCoordFromHtmlDivElement(element: HTMLDivElement): Coord {
   return reversePan(grid.x, grid.y); // handle pan
 }
 
-function createInput(property: "name" | "value") {
-  let prop = inspectedEntity[property];
+function createInput(property: "name" | "value", selectedEntity: Selection) {
+  let prop = selectedEntity[property];
 
   // create input element
   let input = document.createElement("input");
@@ -617,8 +626,8 @@ function createInput(property: "name" | "value") {
   }
   input.value = prop.toString();
   input.style.position = "absolute";
-  input.style.left = `${inspectedEntity.x + pan.x}px`; // handle pan
-  input.style.top = `${inspectedEntity.y + pan.y}px`; // handle pan
+  input.style.left = `${selectedEntity.x + pan.x}px`; // handle pan
+  input.style.top = `${selectedEntity.y + pan.y}px`; // handle pan
   input.style.width = `${GRID_SIZE}px`;
   input.style.height = `${GRID_SIZE}px`;
 
@@ -628,17 +637,17 @@ function createInput(property: "name" | "value") {
   function handleSubmit(event: Event) {
     let val = (event.target as HTMLInputElement).value;
     if (property == "value") {
-      inspectedEntity[property] = parseInt(val);
-      if (inspectedEntity.name === "drawSpeed") {
+      selectedEntity[property] = parseInt(val);
+      if (selectedEntity.name === "drawSpeed") {
         drawSpeed = parseInt(val);
       }
     } else if (property == "name") {
       // copy fn to new name
       if (!operators[val]) {
-        operators[val] = operators[inspectedEntity.name];
+        operators[val] = operators[selectedEntity.name];
       }
 
-      inspectedEntity[property] = val;
+      selectedEntity[property] = val;
     }
 
     input.removeEventListener("keydown", handleSubmit);
@@ -657,6 +666,95 @@ function createInput(property: "name" | "value") {
   });
 }
 
+function deleteEntity(selectedEntity: Selection) {
+  let area = getClosestArea(selectedEntity.x, selectedEntity.y);
+  if (area) {
+    if (isOperator(selectedEntity)) {
+      area.operatorBox = undefined;
+    } else {
+      area.boxes = area.boxes.filter((box) => box !== selectedEntity);
+    }
+
+    let coord: KeyCoordinates = `${selectedEntity.x},${selectedEntity.y}`;
+    if (isAreaEmpty(coord)) {
+      areas.delete(coord);
+    }
+  }
+}
+
+function editInput(selectedEntity: Selection) {
+  if (isOperator(selectedEntity)) {
+    // create input element
+    let input = document.createElement("textarea");
+    input.style.position = "absolute";
+    input.style.left = `${selectedEntity.x + pan.x}px`; // handle pan
+    input.style.top = `${selectedEntity.y + pan.y}px`; // handle pan
+    input.style.width = `${GRID_SIZE * 3}px`;
+    input.style.height = `${GRID_SIZE}px`;
+    input.value = operators[selectedEntity.name].toString();
+    document.body.appendChild(input);
+    input.focus();
+
+    function handleChange(event: Event) {
+      let inputValue = (event.target as HTMLInputElement).value;
+      try {
+        let evalResult = new Function(`return ${inputValue}`);
+        let operator = evalResult();
+        operators[selectedEntity.name] = operator;
+        let res = operator(1);
+        if (Array.isArray(res)) {
+          if (res.length > selectedEntity.outputOffsets.length) {
+            for (
+              let i = selectedEntity.outputOffsets.length;
+              i < res.length;
+              i++
+            ) {
+              selectedEntity.outputOffsets.push({
+                x: GRID_SIZE,
+                y: i * GRID_SIZE,
+              });
+            }
+          } else if (res.length < selectedEntity.outputOffsets.length) {
+            selectedEntity.outputOffsets = selectedEntity.outputOffsets.slice(
+              0,
+              res.length
+            );
+          }
+        } else {
+          if (selectedEntity.name.startsWith("is")) {
+          } else {
+            selectedEntity.outputOffsets = selectedEntity.outputOffsets.slice(
+              0,
+              1
+            );
+          }
+        }
+        // log(`set ${selectedEntity.name} to ${operator.toString()}`);
+      } catch (e) {
+        // log(`error setting ${selectedEntity.name} to ${inputValue}`);
+      }
+
+      input.removeEventListener("keydown", handleChange);
+      input.removeEventListener("blur", handleChange);
+      input.remove();
+    }
+
+    input.addEventListener("keydown", function (event: KeyboardEvent) {
+      if (event.key === "Enter" && !event.shiftKey) {
+        handleChange(event);
+      }
+    });
+
+    input.addEventListener("blur", function (event: Event) {
+      handleChange(event);
+    });
+  } else {
+    createInput("value", selectedEntity!);
+  }
+}
+
+let inspectedEntity: Selection | undefined;
+
 function createContextMenu() {
   // menu needs to show up over the canvas correctly
   let contextMenu = document.createElement("div");
@@ -670,90 +768,19 @@ function createContextMenu() {
     let action = (event.target as HTMLInputElement).getAttribute("data-action");
     let contextMenuCoord = getCoordFromHtmlDivElement(contextMenu);
 
+    selectedEntity = inspectedEntity!;
+    selectedEntity.startX = selectedEntity.x;
+    selectedEntity.startY = selectedEntity.y;
+
     switch (action) {
       case "edit-name":
-        createInput("name");
+        createInput("name", selectedEntity!);
         break;
       case "edit":
-        if (isOperator(inspectedEntity)) {
-          // create input element
-          let input = document.createElement("textarea");
-          input.style.position = "absolute";
-          input.style.left = `${inspectedEntity.x + pan.x}px`; // handle pan
-          input.style.top = `${inspectedEntity.y + pan.y}px`; // handle pan
-          input.style.width = `${GRID_SIZE * 3}px`;
-          input.style.height = `${GRID_SIZE}px`;
-          input.value = operators[inspectedEntity.name].toString();
-          document.body.appendChild(input);
-          input.focus();
-
-          function handleChange(event: Event) {
-            let inputValue = (event.target as HTMLInputElement).value;
-            try {
-              let evalResult = new Function(`return ${inputValue}`);
-              let operator = evalResult();
-              operators[inspectedEntity.name] = operator;
-              let res = operator(1);
-              if (Array.isArray(res)) {
-                if (res.length > inspectedEntity.outputOffsets.length) {
-                  for (
-                    let i = inspectedEntity.outputOffsets.length;
-                    i < res.length;
-                    i++
-                  ) {
-                    inspectedEntity.outputOffsets.push({
-                      x: GRID_SIZE,
-                      y: i * GRID_SIZE,
-                    });
-                  }
-                } else if (res.length < inspectedEntity.outputOffsets.length) {
-                  inspectedEntity.outputOffsets =
-                    inspectedEntity.outputOffsets.slice(0, res.length);
-                }
-              } else {
-                if (inspectedEntity.name.startsWith("is")) {
-                } else {
-                  inspectedEntity.outputOffsets =
-                    inspectedEntity.outputOffsets.slice(0, 1);
-                }
-              }
-              // log(`set ${inspectedEntity.name} to ${operator.toString()}`);
-            } catch (e) {
-              // log(`error setting ${inspectedEntity.name} to ${inputValue}`);
-            }
-
-            input.removeEventListener("keydown", handleChange);
-            input.removeEventListener("blur", handleChange);
-            input.remove();
-          }
-
-          input.addEventListener("keydown", function (event: KeyboardEvent) {
-            if (event.key === "Enter" && !event.shiftKey) {
-              handleChange(event);
-            }
-          });
-
-          input.addEventListener("blur", function (event: Event) {
-            handleChange(event);
-          });
-        } else {
-          createInput("value");
-        }
+        editInput(selectedEntity!);
         break;
       case "delete":
-        let area = getClosestArea(inspectedEntity.x, inspectedEntity.y);
-        if (area) {
-          if (isOperator(inspectedEntity)) {
-            area.operatorBox = undefined;
-          } else {
-            area.boxes = area.boxes.filter((box) => box !== inspectedEntity);
-          }
-
-          let coord: KeyCoordinates = `${inspectedEntity.x},${inspectedEntity.y}`;
-          if (isAreaEmpty(coord)) {
-            areas.delete(coord);
-          }
-        }
+        deleteEntity(selectedEntity!);
         break;
       case "create-value":
         addEntityToArea(createBox(contextMenuCoord));
@@ -761,6 +788,14 @@ function createContextMenu() {
       case "create-operator":
         addEntityToArea(createOperator(contextMenuCoord));
         break;
+    }
+
+    // if starts with edit-loc
+    if (action && action.startsWith("edit-loc")) {
+      // as if selecting operator line for the first time
+      // parse the number from the action
+      let loc = parseInt(action.split("-")[2]);
+      selectedEntity!.editLoc = loc;
     }
 
     hideContextMenu();
@@ -799,11 +834,13 @@ function handleRightClick(event: MouseEvent) {
     if (area.boxes.length > 0) {
       // select last box
       inspectedEntity = area.boxes[area.boxes.length - 1] as Selection;
+      on.edit = true;
       updateContextMenu("existing-box");
     } else if (area.operatorBox) {
       // select operator
       inspectedEntity = area.operatorBox as Selection;
-      updateContextMenu("existing-operator");
+      on.edit = true;
+      updateContextMenu("existing-operator", inspectedEntity);
     }
   } else {
     updateContextMenu("new");
@@ -909,7 +946,7 @@ function handleDrag(event: MouseEvent): void {
         }
       }
     }
-  } else {
+  } else if (!on.edit) {
     on.drag = true;
     canvas.style.cursor = "move";
     selectedEntity.x += event.movementX;
@@ -930,7 +967,7 @@ function handleDrop(): void {
   let key: KeyCoordinates = `${x},${y}`;
 
   // when moving existing boxes around
-  if (!selectedEntity.new) {
+  if (!selectedEntity.new && !on.edit) {
     if (startArea) {
       // delete old box
       if (isOperator(selectedEntity)) {
@@ -990,20 +1027,21 @@ function handleDrop(): void {
     if (isAreaEmpty(startCoord)) {
       areas.delete(startCoord);
     }
-  } else if (selectedEntity.new) {
+  } else {
     if (startArea?.operatorBox) {
+      let offset = selectedEntity.editLoc - 1 || 0;
       // set output location of operator to mouse area coord
-      startArea.operatorBox.outputOffsets = [
-        {
-          x: x - startArea.operatorBox.x,
-          y: y - startArea.operatorBox.y,
-        },
-      ];
+      startArea.operatorBox.outputOffsets[offset] = {
+        x: x - startArea.operatorBox.x,
+        y: y - startArea.operatorBox.y,
+      };
+      selectedEntity.editLoc = 0;
     }
   }
 
   // draw();
   selectedEntity = undefined;
+  on.edit = false;
 }
 
 function animateBoxLines() {
@@ -1029,7 +1067,7 @@ function animateBoxLines() {
 
           // new operator line
           if (
-            selectedEntity?.new &&
+            (selectedEntity?.new || selectedEntity?.editLoc == i + 1) &&
             operatorBox.x == selectedEntity.startX &&
             operatorBox.y == selectedEntity.startY
           ) {
