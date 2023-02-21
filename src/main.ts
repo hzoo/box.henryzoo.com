@@ -590,7 +590,7 @@ function updateContextMenu(
       <div class="context-menu-item" data-action="edit-name">Edit Name</div>
     `;
     if (entity) {
-      entity.outputOffsets.forEach((offset, index) => {
+      entity.outputOffsets.forEach((_, index) => {
         index += 1;
         contextMenu.innerHTML += `
           <div class="context-menu-item" data-action="edit-loc-${index}">Edit Loc ${index}</div>
