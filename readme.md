@@ -25,6 +25,7 @@
   - simulate mousemove/mousedown as creating inputs? one could have the code itself as series of boxes
 - how to handle function composition, naming, scope, variables?
 - maybe each return statement is it's own output location? Or if nothing is returned, return the value to another location.
+- drag to clone, can edit all same name
 
 ## todo
 
@@ -32,7 +33,7 @@
 - [ ] fn abstraction (nested canvas?)
 - [ ] easy way to copy paste a layout for demo or save to disk?
 - [ ] allow dragging to change output loc
-- [ ] cloned fns + differentiate global/local scope?
+- [ ] differentiate global/local scope?
 
 ## metaphors
 

@@ -69,7 +69,7 @@ const canvas = (function () {
 const observer = new ResizeObserver((_) => {
   canvas.width = canvas.clientWidth;
   canvas.height = canvas.clientHeight;
-  draw();
+  // draw();
 });
 observer.observe(canvas);
 
@@ -663,6 +663,9 @@ function createContextMenu() {
             } catch (e) {
               // log(`error setting ${inspectedEntity.name} to ${inputValue}`);
             }
+
+            input.removeEventListener("keydown", handleChange);
+            input.removeEventListener("blur", handleChange);
             input.remove();
           }
 
@@ -941,7 +944,7 @@ function handleDrop(): void {
     }
   }
 
-  draw();
+  // draw();
   selectedEntity = undefined;
 }
 
@@ -1180,17 +1183,14 @@ function init() {
   });
 
   document.addEventListener("keyup", function (event) {
+    canvas.style.cursor = "default";
     if (event.key === " ") {
-      canvas.style.cursor = "default";
       on.space = false;
     } else if (event.key === "Meta") {
-      canvas.style.cursor = "default";
       on.meta = false;
     } else if (event.key === "Shift") {
-      //   canvas.style.cursor = "default";
       on.shift = false;
     } else if (event.key === "Alt") {
-      canvas.style.cursor = "default";
       on.alt = false;
     }
   });
