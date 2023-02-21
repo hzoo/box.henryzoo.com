@@ -19,7 +19,7 @@ type BoxHistory = {
 // maybe value should be a getter?
 type Box = Coord & {
   name: string; // label
-  value: number; // doesn't have to be a number actually
+  value: any; // doesn't have to be a number actually
   end?: Coord; // where to animate towards
   history: BoxHistory[];
   updated?: boolean; // already operated on in loop
@@ -624,7 +624,7 @@ function createInput(property: "name" | "value") {
   // create input element
   let input = document.createElement("input");
   if (property == "value") {
-    input.type = "number";
+    // input.type = "number";
   } else {
     input.type = "text";
   }
@@ -648,7 +648,8 @@ function createInput(property: "name" | "value") {
 
     let val = (event.target as HTMLInputElement).value;
     if (property == "value") {
-      selectedEntity[property] = parseInt(val) || 0;
+      // selectedEntity[property] = parseInt(val) || 0;
+      selectedEntity[property] = val;
       if (selectedEntity.name === "drawSpeed") {
         drawSpeed = parseInt(val);
       }
@@ -710,9 +711,6 @@ function editInput() {
     input.focus();
 
     function handleChange(event: Event) {
-      input.removeEventListener("keydown", handleChange);
-      input.removeEventListener("blur", handleChange);
-      input.remove();
       if (!selectedEntity) {
         return;
       }
@@ -754,6 +752,10 @@ function editInput() {
       } catch (e) {
         // log(`error setting ${selectedEntity.name} to ${inputValue}`);
       }
+
+      input.removeEventListener("keydown", handleChange);
+      input.removeEventListener("blur", handleChange);
+      input.remove();
     }
 
     input.addEventListener("keydown", function (event: KeyboardEvent) {
@@ -887,6 +889,7 @@ function handleMousedown(event: MouseEvent): void {
   }
 
   if (on.edit) {
+    on.edit = false;
     return;
   }
 
@@ -981,6 +984,7 @@ function handleDrop(): void {
   on.drag = false;
   canvas.style.cursor = "default";
   if (!selectedEntity) {
+    on.edit = false;
     return;
   }
   let startCoord: KeyCoordinates = `${selectedEntity.startX},${selectedEntity.startY}`;
