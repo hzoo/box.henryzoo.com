@@ -614,7 +614,11 @@ function getCoordFromHtmlDivElement(element: HTMLDivElement): Coord {
   return reversePan(grid.x, grid.y); // handle pan
 }
 
-function createInput(property: "name" | "value", selectedEntity: Selection) {
+function createInput(property: "name" | "value") {
+  if (!selectedEntity) {
+    return;
+  }
+
   let prop = selectedEntity[property];
 
   // create input element
@@ -635,9 +639,16 @@ function createInput(property: "name" | "value", selectedEntity: Selection) {
   input.focus();
 
   function handleSubmit(event: Event) {
+    input.removeEventListener("keydown", handleSubmit);
+    input.removeEventListener("blur", handleSubmit);
+    input.remove();
+    if (!selectedEntity) {
+      return;
+    }
+
     let val = (event.target as HTMLInputElement).value;
     if (property == "value") {
-      selectedEntity[property] = parseInt(val);
+      selectedEntity[property] = parseInt(val) || 0;
       if (selectedEntity.name === "drawSpeed") {
         drawSpeed = parseInt(val);
       }
@@ -649,10 +660,6 @@ function createInput(property: "name" | "value", selectedEntity: Selection) {
 
       selectedEntity[property] = val;
     }
-
-    input.removeEventListener("keydown", handleSubmit);
-    input.removeEventListener("blur", handleSubmit);
-    input.remove();
   }
 
   input.addEventListener("keydown", function (event: KeyboardEvent) {
@@ -666,11 +673,14 @@ function createInput(property: "name" | "value", selectedEntity: Selection) {
   });
 }
 
-function deleteEntity(selectedEntity: Selection) {
+function deleteEntity() {
+  if (!selectedEntity) {
+    return;
+  }
   let area = getClosestArea(selectedEntity.x, selectedEntity.y);
   if (area) {
     if (isOperator(selectedEntity)) {
-      area.operatorBox = undefined;
+      delete area.operatorBox;
     } else {
       area.boxes = area.boxes.filter((box) => box !== selectedEntity);
     }
@@ -682,7 +692,11 @@ function deleteEntity(selectedEntity: Selection) {
   }
 }
 
-function editInput(selectedEntity: Selection) {
+function editInput() {
+  if (!selectedEntity) {
+    return;
+  }
+
   if (isOperator(selectedEntity)) {
     // create input element
     let input = document.createElement("textarea");
@@ -696,6 +710,13 @@ function editInput(selectedEntity: Selection) {
     input.focus();
 
     function handleChange(event: Event) {
+      input.removeEventListener("keydown", handleChange);
+      input.removeEventListener("blur", handleChange);
+      input.remove();
+      if (!selectedEntity) {
+        return;
+      }
+
       let inputValue = (event.target as HTMLInputElement).value;
       try {
         let evalResult = new Function(`return ${inputValue}`);
@@ -733,10 +754,6 @@ function editInput(selectedEntity: Selection) {
       } catch (e) {
         // log(`error setting ${selectedEntity.name} to ${inputValue}`);
       }
-
-      input.removeEventListener("keydown", handleChange);
-      input.removeEventListener("blur", handleChange);
-      input.remove();
     }
 
     input.addEventListener("keydown", function (event: KeyboardEvent) {
@@ -749,7 +766,7 @@ function editInput(selectedEntity: Selection) {
       handleChange(event);
     });
   } else {
-    createInput("value", selectedEntity!);
+    createInput("value");
   }
 }
 
@@ -768,19 +785,21 @@ function createContextMenu() {
     let action = (event.target as HTMLInputElement).getAttribute("data-action");
     let contextMenuCoord = getCoordFromHtmlDivElement(contextMenu);
 
-    selectedEntity = inspectedEntity!;
-    selectedEntity.startX = selectedEntity.x;
-    selectedEntity.startY = selectedEntity.y;
+    if (inspectedEntity) {
+      selectedEntity = inspectedEntity;
+      selectedEntity.startX = selectedEntity.x;
+      selectedEntity.startY = selectedEntity.y;
+    }
 
     switch (action) {
       case "edit-name":
-        createInput("name", selectedEntity!);
+        createInput("name");
         break;
       case "edit":
-        editInput(selectedEntity!);
+        editInput();
         break;
       case "delete":
-        deleteEntity(selectedEntity!);
+        deleteEntity();
         break;
       case "create-value":
         addEntityToArea(createBox(contextMenuCoord));
@@ -1033,7 +1052,10 @@ function handleDrop(): void {
     }
   } else {
     if (startArea?.operatorBox) {
-      let offset = selectedEntity.editLoc - 1 || 0;
+      if (!selectedEntity.editLoc && !selectedEntity.new) {
+        return;
+      }
+      let offset = selectedEntity.editLoc - 1;
       // set output location of operator to mouse area coord
       startArea.operatorBox.outputOffsets[offset] = {
         x: x - startArea.operatorBox.x,
