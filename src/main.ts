@@ -867,6 +867,10 @@ function handleMousedown(event: MouseEvent): void {
     return;
   }
 
+  if (on.edit) {
+    return;
+  }
+
   let area = getClosestArea(mouse.x, mouse.y);
 
   // existing area
@@ -1041,6 +1045,7 @@ function handleDrop(): void {
 
   // draw();
   selectedEntity = undefined;
+  inspectedEntity = undefined;
   on.edit = false;
 }
 
