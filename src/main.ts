@@ -955,7 +955,7 @@ function handleMousedown(event: MouseEvent): void {
 }
 
 function handleDrag(event: MouseEvent): void {
-  let scale = window.visualViewport.scale;
+  let scale = window.visualViewport?.scale || 1;
   mouse = getMousePos(canvas, event);
   // logFixed(`${mouse.x}, ${mouse.y}`);
   if (!selectedEntity) {
