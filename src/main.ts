@@ -954,14 +954,15 @@ function handleMousedown(event: MouseEvent): void {
 }
 
 function handleDrag(event: MouseEvent): void {
+  let scale = window.visualViewport.scale;
   mouse = getMousePos(canvas, event);
   // logFixed(`${mouse.x}, ${mouse.y}`);
   if (!selectedEntity) {
     // if left click and space pressed, pan
     if (event.buttons === 1 && on.space) {
       canvas.style.cursor = "grabbing";
-      pan.x += event.movementX;
-      pan.y += event.movementY;
+      pan.x += event.movementX / scale;
+      pan.y += event.movementY / scale;
       // draw();
     }
   } else if (on.alt) {
@@ -977,8 +978,8 @@ function handleDrag(event: MouseEvent): void {
   } else if (!on.edit) {
     on.drag = true;
     canvas.style.cursor = "move";
-    selectedEntity.x += event.movementX;
-    selectedEntity.y += event.movementY;
+    selectedEntity.x += event.movementX / scale;
+    selectedEntity.y += event.movementY / scale;
   }
 }
 
@@ -1265,6 +1266,8 @@ function init() {
   canvas.addEventListener("mouseup", handleDrop);
 
   document.addEventListener("keydown", function (event) {
+    event.preventDefault();
+
     if (event.key === "Escape") {
       hideContextMenu();
     } else if (event.key === " ") {
@@ -1283,7 +1286,7 @@ function init() {
     }
 
     // if key is ascii, create a box from the source with name "key"
-    if (event.key.length === 1) {
+    else if (event.key.length === 1) {
       Object.keys(generators).find((key) => {
         if (key === "gen key") {
           let box = createBox({
@@ -1548,6 +1551,29 @@ function init() {
 
   animateBoxLines();
 }
+
+const snap = new Tone.Sampler({
+  urls: {
+    C4: "snap.wav",
+  },
+}).toDestination();
+
+// set the swing amount
+const swingAmount = 0.5; // set to the amount of swing you want (between 0 and 1)
+
+// set the snap interval
+const snapInterval = "1m";
+
+// create a time object with swing
+const swing = Tone.Time(snapInterval).toTicks() * swingAmount;
+const swingTime = Tone.Time(snapInterval).toNotation() + ` + ${swing}t`;
+
+// schedule the snap events with swing
+Tone.Transport.scheduleRepeat((time) => {
+  snap.triggerAttack("C4", time);
+}, swingTime);
+// start the transport
+// Tone.Transport.start();
 
 init();
 
