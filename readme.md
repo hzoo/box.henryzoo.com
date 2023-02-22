@@ -34,6 +34,7 @@
 - [ ] fn abstraction (nested canvas?)
 - [ ] easy way to copy paste a layout for demo or save to disk?
 - [ ] differentiate global/local scope?
+- [ ] create the idea of source/sink? box for each keystroke, or random number generator per time period for music?
 
 ## metaphors
 

@@ -1,4 +1,6 @@
-export {};
+import * as Tone from "tone";
+
+const synth = new Tone.Synth().toDestination();
 
 type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -55,6 +57,7 @@ function isBox(entity: Box | Operator): entity is Box {
 
 let WIDTH = document.body.clientWidth;
 let HEIGHT = document.body.clientHeight || 500;
+let SCALE = window.devicePixelRatio;
 const canvas = (function () {
   try {
     document.getElementById("canvas")?.remove();
@@ -71,6 +74,7 @@ const canvas = (function () {
 const observer = new ResizeObserver((_) => {
   canvas.width = canvas.clientWidth;
   canvas.height = canvas.clientHeight;
+  SCALE = window.devicePixelRatio;
   // draw();
 });
 observer.observe(canvas);
@@ -98,8 +102,7 @@ function createRenderer(canvas: HTMLCanvasElement) {
       } else {
         ctx.setLineDash([]);
       }
-      let { x: _x, y: _y } = applyPan(x, y);
-      ctx.strokeRect(_x, _y, size, size);
+      this.strokeRect(x, y, size, size);
     },
     drawLogs() {
       ctx.textAlign = "left";
@@ -889,7 +892,6 @@ function handleMousedown(event: MouseEvent): void {
   }
 
   if (on.edit) {
-    on.edit = false;
     return;
   }
 
@@ -1149,7 +1151,7 @@ function createBox({
 }: {
   x: number;
   y: number;
-  value?: number;
+  value?: any;
   name?: string;
 }): Box {
   let newBox: Box = {
@@ -1222,6 +1224,8 @@ function createOperator({
   return newOperator;
 }
 
+let generators: { [key: string]: Operator } = {};
+
 // add a box or operator to an area coordinate
 function addEntityToArea(
   entity: Box | Operator,
@@ -1244,6 +1248,7 @@ function addEntityToArea(
         boxes: [],
         operatorBox: entity,
       });
+      generators[entity.name] = entity;
     } else {
       areas.set(coord, {
         boxes: [entity],
@@ -1275,6 +1280,22 @@ function init() {
     } else if (event.key === "Alt") {
       on.alt = true;
       canvas.style.cursor = "ew-resize";
+    }
+
+    // if key is ascii, create a box from the source with name "key"
+    if (event.key.length === 1) {
+      Object.keys(generators).find((key) => {
+        if (key === "gen key") {
+          let box = createBox({
+            x: generators[key].x,
+            y: generators[key].y,
+            value: event.key,
+          });
+          addEntityToArea(box);
+          return true;
+        }
+        return false;
+      });
     }
   });
 
@@ -1463,7 +1484,73 @@ function init() {
     })
   );
 
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 2,
+      y: y + 50 * 3,
+      name: "gen key",
+      fn: (a) => a,
+      outputOffsets: [{ x: 50 * 2, y: 50 * 0 }],
+    })
+  );
+
+  // add a function that plays a note based on the letter of the alphabet passed in
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 4,
+      y: y + 50 * 3,
+      name: "play note",
+      fn: (a: string) => {
+        if (typeof a === "number") {
+          return a;
+        }
+        // convert ascii keyboard letters to notes
+        // where a is the ascii code of the letter
+        // and b is the note
+        // a = 97, b = 0
+        // a = 98, b = 1
+        // a = 99, b = 2
+
+        const note = a.charCodeAt(0) - 97;
+        if (typeof note === "number" && !isNaN(note)) {
+          playNote({
+            note: "cdefgab"[mod(note, 7)],
+            octave: 4,
+            duration: 0.2,
+          });
+        }
+        return a;
+      },
+    })
+  );
+
+  // add trash after play note
+  addEntityToArea(
+    createOperator({
+      x: x + 50 * 5,
+      y: y + 50 * 3,
+      name: "trash🗑️",
+      outputOffsets: [{ x: 50 * 0, y: 50 * 0 }],
+    })
+  );
+
+  function playNote({
+    note,
+    octave,
+    duration,
+  }: {
+    note: string;
+    octave: number;
+    duration: number;
+  }) {
+    synth.triggerAttackRelease(`${note}${octave}`, duration);
+  }
+
   animateBoxLines();
 }
 
 init();
+
+function mod(n: number, m: number) {
+  return ((n % m) + m) % m;
+}
