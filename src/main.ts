@@ -31,7 +31,7 @@ type Box = Coord & {
 type Operator = Box & {
   outputOffsets: Coord[]; // store offset from x,y
   auto: boolean; // WIP: if true, fast forward to next operator
-  editLoc: number; // WIP: if true, allow editing of outputOffsets
+  editLoc: number | undefined; // WIP: if true, allow editing of outputOffsets
 };
 
 type Area = {
@@ -420,6 +420,7 @@ function createRenderer(canvas: HTMLCanvasElement) {
       }
 
       this.drawLogs();
+      // this.fillText(String(on.edit), mouse.x + 5, mouse.y - 12);
     },
     drawOperatorLine(
       operatorBox: Operator,
@@ -1059,16 +1060,22 @@ function handleDrop(): void {
     }
   } else {
     if (startArea?.operatorBox) {
-      if (!selectedEntity.editLoc && !selectedEntity.new) {
-        return;
+      let offset;
+      if (selectedEntity.new) {
+        offset = 0;
       }
-      let offset = selectedEntity.editLoc - 1 || 0;
-      // set output location of operator to mouse area coord
-      startArea.operatorBox.outputOffsets[offset] = {
-        x: x - startArea.operatorBox.x,
-        y: y - startArea.operatorBox.y,
-      };
-      selectedEntity.editLoc = 0;
+      if (selectedEntity.editLoc) {
+        offset = selectedEntity.editLoc - 1;
+      }
+
+      if (offset !== undefined) {
+        // set output location of operator to mouse area coord
+        startArea.operatorBox.outputOffsets[offset] = {
+          x: x - startArea.operatorBox.x,
+          y: y - startArea.operatorBox.y,
+        };
+        selectedEntity.editLoc = undefined;
+      }
     }
   }
 
@@ -1266,11 +1273,10 @@ function init() {
   canvas.addEventListener("mouseup", handleDrop);
 
   document.addEventListener("keydown", function (event) {
-    event.preventDefault();
-
     if (event.key === "Escape") {
       hideContextMenu();
     } else if (event.key === " ") {
+      event.preventDefault();
       on.space = true;
       canvas.style.cursor = "grab";
     } else if (event.key === "Meta") {
@@ -1286,7 +1292,7 @@ function init() {
     }
 
     // if key is ascii, create a box from the source with name "key"
-    else if (event.key.length === 1) {
+    else if (event.key.length === 1 && !on.edit) {
       Object.keys(generators).find((key) => {
         if (key === "gen key") {
           let box = createBox({
