@@ -1,6 +1,39 @@
 import * as Tone from "tone";
 
 const synth = new Tone.Synth().toDestination();
+const snap = new Tone.Sampler({
+  urls: {
+    C4: "snap.wav",
+  },
+}).toDestination();
+
+// set the swing amount
+const swingAmount = 0.5; // set to the amount of swing you want (between 0 and 1)
+
+// set the snap interval
+const snapInterval = "1m";
+
+// create a time object with swing
+const swing = Tone.Time(snapInterval).toTicks() * swingAmount;
+const swingTime = Tone.Time(snapInterval).toNotation() + ` + ${swing}t`;
+
+// schedule the snap events with swing
+Tone.Transport.scheduleRepeat((time) => {
+  snap.triggerAttack("C4", time);
+
+  // Object.keys(generators).find((key) => {
+  //   if (key === "gen snap") {
+  //     let box = createBox({
+  //       x: generators[key].x,
+  //       y: generators[key].y,
+  //       value: time.toFixed(2), // fixed decimals
+  //     });
+  //     addEntityToArea(box);
+  //     return true;
+  //   }
+  //   return false;
+  // });
+}, swingTime);
 
 type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -1210,7 +1243,7 @@ function createOperator({
     }
     newOperator.name = name;
 
-    let res = operators[name](1);
+    let res = operators[name](0);
     if (Array.isArray(res)) {
       // create multiple outputOffets
       // only if newOperator.outputOffsets is empty
@@ -1513,13 +1546,6 @@ function init() {
         if (typeof a === "number") {
           return a;
         }
-        // convert ascii keyboard letters to notes
-        // where a is the ascii code of the letter
-        // and b is the note
-        // a = 97, b = 0
-        // a = 98, b = 1
-        // a = 99, b = 2
-
         const note = a.charCodeAt(0) - 97;
         if (typeof note === "number" && !isNaN(note)) {
           playNote({
@@ -1556,30 +1582,10 @@ function init() {
   }
 
   animateBoxLines();
+
+  // start the transport
+  // Tone.Transport.start();
 }
-
-const snap = new Tone.Sampler({
-  urls: {
-    C4: "snap.wav",
-  },
-}).toDestination();
-
-// set the swing amount
-const swingAmount = 0.5; // set to the amount of swing you want (between 0 and 1)
-
-// set the snap interval
-const snapInterval = "1m";
-
-// create a time object with swing
-const swing = Tone.Time(snapInterval).toTicks() * swingAmount;
-const swingTime = Tone.Time(snapInterval).toNotation() + ` + ${swing}t`;
-
-// schedule the snap events with swing
-Tone.Transport.scheduleRepeat((time) => {
-  snap.triggerAttack("C4", time);
-}, swingTime);
-// start the transport
-// Tone.Transport.start();
 
 init();
 
