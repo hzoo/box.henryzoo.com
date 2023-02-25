@@ -1,39 +1,6 @@
 import * as Tone from "tone";
 
 const synth = new Tone.Synth().toDestination();
-const snap = new Tone.Sampler({
-  urls: {
-    C4: "snap.wav",
-  },
-}).toDestination();
-
-// set the swing amount
-const swingAmount = 0.5; // set to the amount of swing you want (between 0 and 1)
-
-// set the snap interval
-const snapInterval = "1m";
-
-// create a time object with swing
-const swing = Tone.Time(snapInterval).toTicks() * swingAmount;
-const swingTime = Tone.Time(snapInterval).toNotation() + ` + ${swing}t`;
-
-// schedule the snap events with swing
-Tone.Transport.scheduleRepeat((time) => {
-  snap.triggerAttack("C4", time);
-
-  // Object.keys(generators).find((key) => {
-  //   if (key === "gen snap") {
-  //     let box = createBox({
-  //       x: generators[key].x,
-  //       y: generators[key].y,
-  //       value: time.toFixed(2), // fixed decimals
-  //     });
-  //     addEntityToArea(box);
-  //     return true;
-  //   }
-  //   return false;
-  // });
-}, swingTime);
 
 type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -473,13 +440,10 @@ function createRenderer(canvas: HTMLCanvasElement) {
         Math.sqrt(Math.pow(boxOffset.x, 2) + Math.pow(boxOffset.y, 2)) /
           (dotSize + dotSpacing)
       );
-
       ctx.setLineDash([dotSize, dotSpacing]);
       ctx.lineDashOffset = -Math.round(
         progress * (dotSize + dotSpacing) * dotCount
       );
-      // different color for moving line, so it's easier to see
-      ctx.strokeStyle = "#78350f";
       // draw line
       this.drawLine(
         {
@@ -919,6 +883,7 @@ function handleMousedown(event: MouseEvent): void {
   if (event.button !== 0 || on.space) {
     return;
   }
+
   let contextMenu = document.querySelector(".context-menu") as HTMLDivElement;
   if (contextMenu && contextMenu.style.display !== "none") {
     hideContextMenu();
@@ -1017,7 +982,11 @@ function handleDrag(event: MouseEvent): void {
   }
 }
 
-function handleDrop(): void {
+function handleDrop(event: MouseEvent): void {
+  if (event.button !== 0) {
+    return;
+  }
+
   on.drag = false;
   canvas.style.cursor = "default";
   if (!selectedEntity) {
@@ -1145,6 +1114,7 @@ function animateBoxLines() {
             operatorBox.x == selectedEntity.startX &&
             operatorBox.y == selectedEntity.startY
           ) {
+            Renderer.ctx.strokeStyle = "purple";
             boxOffset = {
               x: x - operatorBox.x,
               y: y - operatorBox.y,
@@ -1157,6 +1127,7 @@ function animateBoxLines() {
             dotSpacing,
             progress,
           });
+          Renderer.ctx.strokeStyle = "black";
         }
 
         if (
@@ -1582,9 +1553,6 @@ function init() {
   }
 
   animateBoxLines();
-
-  // start the transport
-  // Tone.Transport.start();
 }
 
 init();
