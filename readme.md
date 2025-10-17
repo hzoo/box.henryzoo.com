@@ -1,6 +1,9 @@
 ## box experiment
 
-> open sourced 10/2025
+> early 2023 experiment inspired by paul shens' work. oss 10/2025.  
+> see posts: [1](https://x.com/left_pad/status/1617389811387473921), [2](https://x.com/left_pad/status/1619206039433531394), [3](https://x.com/left_pad/status/1633253170427166720)
+
+https://github.com/user-attachments/assets/eab3e01f-d730-4e40-b5c6-3cea5be92700
 
 - cmd/meta + click = create box
 - shift + click + drag = create operator
