@@ -1,4 +1,6 @@
-##
+## box experiment
+
+> open sourced 10/2025
 
 - cmd/meta + click = create box
 - shift + click + drag = create operator
